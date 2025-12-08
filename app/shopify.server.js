@@ -5,22 +5,20 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 
-import { MySQLSessionStorage } from "@shopify/shopify-app-session-storage-mysql";
-import { pool } from "./db.server"; // MySQL connection
+import { MySQLSessionStorage } from "./lib/mysql-session-storage.js"; // ✅ YOUR CUSTOM STORAGE
 
-// ✔ Create MySQL-based session storage
-const mysqlSessionStorage = new MySQLSessionStorage(process.env.DATABASE_URL);
+const mysqlSessionStorage = new MySQLSessionStorage(); // ✅ CUSTOM INSTANCE
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.January25,
   scopes: process.env.SCOPES?.split(","),
-  appUrl: "https://csv-to-ftp.vercel.app" || "",
+
+  appUrl: "https://csv-to-ftp.vercel.app",
   authPathPrefix: "/auth",
 
-  // ✔ Use MySQL session storage (NOT Prisma)
-  sessionStorage: mysqlSessionStorage,
+  sessionStorage: mysqlSessionStorage, // ✅ USE YOUR CUSTOM STORAGE
 
   distribution: AppDistribution.AppStore,
 
@@ -28,17 +26,11 @@ const shopify = shopifyApp({
     unstable_newEmbeddedAuthStrategy: true,
     removeRest: true,
   },
-
-  ...(process.env.SHOP_CUSTOM_DOMAIN
-    ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
-    : {}),
 });
 
 export default shopify;
 
-// ✔ Export original shopify.sessionStorage ONLY
 export const sessionStorage = shopify.sessionStorage;
-
 export const apiVersion = ApiVersion.January25;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
