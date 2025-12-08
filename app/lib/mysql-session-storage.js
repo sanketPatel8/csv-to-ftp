@@ -155,7 +155,7 @@ export class MySQLSessionStorage {
    * ------------------------- */
   async saveFtpConfig(shop, config) {
     try {
-      const { protocol, host, port, username, password } = config;
+      const { protocol, host, port, username, password, time_range } = config;
 
       const [result] = await pool.query(
         `
@@ -166,10 +166,11 @@ export class MySQLSessionStorage {
           ftp_port = ?,
           ftp_username = ?,
           ftp_password = ?,
+          ftp_time_range = ?, 
           updated_at = NOW()
         WHERE shop = ?
         `,
-        [protocol, host, port, username, password, shop],
+        [protocol, host, port, username, password, time_range, shop],
       );
 
       // If UPDATE changed nothing → insert new row
@@ -177,10 +178,10 @@ export class MySQLSessionStorage {
         await pool.query(
           `
           INSERT INTO ${this.table} 
-            (shop, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, NOW())
+            (shop, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, ftp_time_range,updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
           `,
-          [shop, protocol, host, port, username, password],
+          [shop, protocol, host, port, username, password, time_range],
         );
       }
 
@@ -203,7 +204,8 @@ export class MySQLSessionStorage {
         ftp_host AS host,
         ftp_port AS port,
         ftp_username AS username,
-        ftp_password AS password
+        ftp_password AS password,
+          ftp_time_range AS time_range   
       FROM ${this.table}
       WHERE shop = ?
       LIMIT 1
