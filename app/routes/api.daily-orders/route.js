@@ -32,6 +32,10 @@ export const action = async ({ request }) => {
       },
     });
 
+    // https://order-to-csv.myshopify.com/admin/api/2024-01/orders.json?created_at_min=2025-12-07T11:07:28.388Z
+
+    // https://order-to-csv.myshopify.com/admin/api/2024-01/orders.json?status=any&created_at_min=2025-12-07T11:07:28&fields=id,name,created_at,total_price,currency,financial_status,fulfillment_status,line_items
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -133,19 +137,54 @@ export const action = async ({ request }) => {
     console.log(`💾 CSV saved: ${filename}`);
 
     // 7. SFTP upload (same FTP logic)
+    // const sftp = new SftpClient();
+    // const remotePath = `/${filename}`;
+
+    // await sftp.connect({
+    //   host: ftpConfig.ftp_host,
+    //   port: parseInt(ftpConfig.ftp_port) || 22,
+    //   username: ftpConfig.ftp_username,
+    //   password: ftpConfig.ftp_password,
+    //   protocol: ftpConfig.ftp_protocol === "ftp" ? "ftp" : "sftp",
+    // });
+
+    // await sftp.put(csvFilePath, remotePath);
+    // await sftp.end();
+
+    // 7. SFTP upload with TIMEOUT + RETRY (Replace your SFTP section)
     const sftp = new SftpClient();
     const remotePath = `/${filename}`;
 
-    await sftp.connect({
-      host: ftpConfig.ftp_host,
-      port: parseInt(ftpConfig.ftp_port) || 22,
-      username: ftpConfig.ftp_username,
-      password: ftpConfig.ftp_password,
-      protocol: ftpConfig.ftp_protocol === "ftp" ? "ftp" : "sftp",
-    });
+    try {
+      // TIMEOUT 30 seconds + RETRY 3 times
+      await sftp.connect({
+        host: ftpConfig.ftp_host,
+        port: parseInt(ftpConfig.ftp_port) || 22,
+        username: ftpConfig.ftp_username,
+        password: ftpConfig.ftp_password,
+        protocol: ftpConfig.ftp_protocol === "ftp" ? "ftp" : "sftp",
+        timeouts: {
+          keepAlive: 10000, // 10s keepalive
+          connectTimeout: 30000, // 30s connect timeout
+        },
+        retries: 3, // Retry 3 times
+        retry_factor: 2, // Exponential backoff
+        retry_minTimeout: 1000, // 1s min delay
+      });
 
-    await sftp.put(csvFilePath, remotePath);
-    await sftp.end();
+      console.log(
+        `✅ Connected to ${ftpConfig.ftp_host}:${ftpConfig.ftp_port}`,
+      );
+
+      await sftp.put(csvFilePath, remotePath);
+      console.log(`✅ File uploaded: ${remotePath}`);
+    } catch (sftpError) {
+      console.error("❌ SFTP Error:", sftpError.message);
+      // DON'T DELETE FILE ON SFTP FAIL - Keep for manual upload
+      throw new Error(`SFTP failed: ${sftpError.message}`);
+    } finally {
+      await sftp.end();
+    }
 
     // 8. Cleanup
     await fs.unlink(csvFilePath);
