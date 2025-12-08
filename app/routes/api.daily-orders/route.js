@@ -1,8 +1,8 @@
 import { json } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticate } from "../../shopify.server";
 import SftpClient from "ssh2-sftp-client";
 import fs from "fs/promises";
-import pool from "../db.server"; // FTP config mate
+import pool from "../../db.server"; // FTP config mate
 
 export const action = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
