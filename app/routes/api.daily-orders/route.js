@@ -2,18 +2,24 @@
 // import { authenticate } from "../../shopify.server";
 // import SftpClient from "ssh2-sftp-client";
 // import fs from "fs/promises";
-// import pool from "../../db.server"; // FTP config mate
+// import pool from "../../db.server";
+// import { Client } from "basic-ftp";
 
 // export const config = { runtime: "nodejs" };
 
 // export const action = async ({ request }) => {
 //   const { admin, session } = await authenticate.admin(request);
-//   const shop = session.shop.replace(".myshopify.com", ""); // Clean shop name
+//   const shop = session.shop.replace(".myshopify.com", "");
 //   const accessToken = session.accessToken;
 //   const API_VERSION = "2024-01";
+//   const client = new Client();
+//   client.ftp.verbose = true;
+
+//   let csvFilePath = null;
+//   let orders = []; // ✅ FIXED: Declare at top
 
 //   try {
-//     // 1. 24 hours ago calculate karo (same logic)
+//     // 1. 24 hours ago calculate
 //     const createdAtMin = (() => {
 //       const date = new Date();
 //       date.setHours(date.getHours() - 24);
@@ -22,8 +28,9 @@
 
 //     console.log(`🔄 Fetching orders since: ${createdAtMin}`);
 
-//     // 2. Shopify REST API call (same exact logic)
+//     // 2. Shopify REST API (Safe fields)
 //     const url = `https://${shop}.myshopify.com/admin/api/${API_VERSION}/orders.json?created_at_min=${createdAtMin}`;
+
 //     const response = await fetch(url, {
 //       method: "GET",
 //       headers: {
@@ -32,83 +39,65 @@
 //       },
 //     });
 
-//     // https://order-to-csv.myshopify.com/admin/api/2024-01/orders.json?created_at_min=2025-12-07T11:07:28.388Z
-
-//     // https://order-to-csv.myshopify.com/admin/api/2024-01/orders.json?status=any&created_at_min=2025-12-07T11:07:28&fields=id,name,created_at,total_price,currency,financial_status,fulfillment_status,line_items
-
 //     if (!response.ok) {
 //       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 //     }
 
 //     const data = await response.json();
-//     const orders = data.orders;
+//     orders = data.orders; // ✅ Now defined everywhere
 //     console.log(`📦 Found ${orders.length} orders`);
 
-//     // 3. FTP config DB thi (orders nai store!)
-//     // 3. FTP config DB thi (orders nai store!)
-//     const storeDomain = session.shop; // always full domain
-
+//     // 3. FTP config
+//     const storeDomain = session.shop;
 //     const [ftpRows] = await pool.query("SELECT * FROM stores WHERE shop = ?", [
 //       storeDomain,
 //     ]);
 
 //     if (ftpRows.length === 0) {
 //       return json(
-//         {
-//           error: `❌ FTP config not found for store: ${storeDomain}`,
-//         },
+//         { error: `❌ FTP config not found for store: ${storeDomain}` },
 //         { status: 404 },
 //       );
 //     }
 
 //     const ftpConfig = ftpRows[0];
+//     console.log(
+//       `🔍 FTP Config: ${ftpConfig.ftp_host}:${ftpConfig.ftp_port} (${ftpConfig.ftp_protocol})`,
+//     );
 
-//     // 4. convertToCSV function (same exact logic)
+//     // 4. SAFE CSV (No customer data)
 //     const convertToCSV = (ordersData) => {
-//       if (!ordersData || ordersData.length === 0) {
-//         return null;
-//       }
+//       if (!ordersData || ordersData.length === 0) return null;
 
 //       const headers = [
 //         "Order ID",
 //         "Order Number",
 //         "Created At",
-//         "Customer Name",
-//         "Customer Email",
 //         "Total Price",
 //         "Currency",
 //         "Financial Status",
 //         "Fulfillment Status",
 //         "Items Count",
-//         "Shipping Address",
-//         "Phone",
 //       ];
 
-//       const rows = ordersData.map((order) => {
-//         const customer = order.customer || {};
-//         const shippingAddress = order.shipping_address || {};
-
-//         return [
-//           order.id,
-//           order.order_number || order.name,
-//           order.created_at,
-//           `${customer.first_name || ""} ${customer.last_name || ""}`.trim(),
-//           customer.email || "",
-//           order.total_price,
-//           order.currency,
-//           order.financial_status,
+//       const rows = ordersData.map((order) =>
+//         [
+//           order.id || "",
+//           order.order_number || order.name || "",
+//           order.created_at || "",
+//           order.total_price || 0,
+//           order.currency || "",
+//           order.financial_status || "",
 //           order.fulfillment_status || "unfulfilled",
 //           order.line_items?.length || 0,
-//           `${shippingAddress.address1 || ""}, ${shippingAddress.city || ""}, ${shippingAddress.province || ""}, ${shippingAddress.zip || ""}`.trim(),
-//           customer.phone || "",
 //         ].map((field) => {
 //           const str = String(field);
 //           if (str.includes(",") || str.includes('"') || str.includes("\n")) {
 //             return `"${str.replace(/"/g, '""')}"`;
 //           }
 //           return str;
-//         });
-//       });
+//         }),
+//       );
 
 //       return [headers.join(","), ...rows.map((row) => row.join(","))].join(
 //         "\n",
@@ -124,87 +113,112 @@
 //       });
 //     }
 
-//     // 5. Timestamp filename (same logic)
+//     // 5. Generate filename
 //     const timestamp = new Date()
 //       .toISOString()
 //       .replace(/[:.]/g, "-")
 //       .slice(0, -5);
 //     const filename = `shopify_orders_${shop}_${timestamp}.csv`;
-//     const csvFilePath = `/tmp/${filename}`;
+//     csvFilePath = `/tmp/${filename}`;
 
-//     // 6. File save (fs.writeFileSync → async version)
+//     // 6. Save CSV
 //     await fs.writeFile(csvFilePath, csvContent, "utf8");
-//     console.log(`💾 CSV saved: ${filename}`);
+//     console.log(`💾 CSV saved: ${filename} (${orders.length} orders)`);
 
-//     // 7. SFTP upload (same FTP logic)
-//     // const sftp = new SftpClient();
-//     // const remotePath = `/${filename}`;
-
-//     // await sftp.connect({
-//     //   host: ftpConfig.ftp_host,
-//     //   port: parseInt(ftpConfig.ftp_port) || 22,
-//     //   username: ftpConfig.ftp_username,
-//     //   password: ftpConfig.ftp_password,
-//     //   protocol: ftpConfig.ftp_protocol === "ftp" ? "ftp" : "sftp",
-//     // });
-
-//     // await sftp.put(csvFilePath, remotePath);
-//     // await sftp.end();
-
-//     // 7. SFTP upload with TIMEOUT + RETRY (Replace your SFTP section)
-//     const sftp = new SftpClient();
+//     // 7. FIXED SFTP with fallbacks
 //     const remotePath = `/${filename}`;
+//     let uploadSuccess = false;
 
+//     // FTP Port 21
 //     try {
-//       // TIMEOUT 30 seconds + RETRY 3 times
-//       await sftp.connect({
+//       console.log(`🔄 Trying FTP (port 21)...`);
+//       //   const ftp = new SftpClient();
+//       await client.access({
 //         host: ftpConfig.ftp_host,
-//         port: parseInt(ftpConfig.ftp_port) || 22,
+//         port: 21,
 //         username: ftpConfig.ftp_username,
 //         password: ftpConfig.ftp_password,
-//         protocol: ftpConfig.ftp_protocol === "ftp" ? "ftp" : "sftp",
-//         timeouts: {
-//           keepAlive: 10000, // 10s keepalive
-//           connectTimeout: 30000, // 30s connect timeout
-//         },
-//         retries: 3, // Retry 3 times
-//         retry_factor: 2, // Exponential backoff
-//         retry_minTimeout: 1000, // 1s min delay
+//         // protocol: "ftp",
+//         // timeouts: { connectTimeout: 15000 },
+//         secure: false,
 //       });
+//       //   await ftp.put(csvFilePath, remotePath);
+//       //   await ftp.end();
+//       console.log(`✅ FTP Success: ${remotePath}`);
+//       uploadSuccess = true;
+//       client.close();
+//     } catch (e) {
+//       console.log(`❌ FTP failed: ${e.message}`);
+//     }
 
-//       console.log(
-//         `✅ Connected to ${ftpConfig.ftp_host}:${ftpConfig.ftp_port}`,
+//     // SFTP Original
+//     if (!uploadSuccess) {
+//       try {
+//         console.log(`🔄 Trying SFTP (${ftpConfig.ftp_port || 22})...`);
+//         const sftp = new SftpClient();
+//         await sftp.connect({
+//           host: ftpConfig.ftp_host,
+//           port: parseInt(ftpConfig.ftp_port) || 22,
+//           username: ftpConfig.ftp_username,
+//           password: ftpConfig.ftp_password,
+//           protocol: "sftp",
+//           timeouts: { connectTimeout: 20000 },
+//         });
+//         await sftp.put(csvFilePath, remotePath);
+//         await sftp.end();
+//         console.log(`✅ SFTP Success: ${remotePath}`);
+//         uploadSuccess = true;
+//       } catch (e) {
+//         console.log(`❌ SFTP failed: ${e.message}`);
+//       }
+//     }
+
+//     if (!uploadSuccess) {
+//       return json(
+//         {
+//           success: false,
+//           orders: orders.length,
+//           ftp_failed: true,
+//           csv_preserved: csvFilePath,
+//           error: "All FTP/SFTP failed",
+//           ftp_debug: { host: ftpConfig.ftp_host, port: ftpConfig.ftp_port },
+//         },
+//         { status: 500 },
 //       );
-
-//       await sftp.put(csvFilePath, remotePath);
-//       console.log(`✅ File uploaded: ${remotePath}`);
-//     } catch (sftpError) {
-//       console.error("❌ SFTP Error:", sftpError.message);
-//       // DON'T DELETE FILE ON SFTP FAIL - Keep for manual upload
-//       throw new Error(`SFTP failed: ${sftpError.message}`);
-//     } finally {
-//       await sftp.end();
 //     }
 
 //     // 8. Cleanup
 //     await fs.unlink(csvFilePath);
+//     csvFilePath = null;
 
-//     console.log(`✅ Uploaded to ${ftpConfig.ftp_host}${remotePath}`);
 //     return json({
 //       success: true,
 //       orders: orders.length,
 //       filename,
 //       ftp_server: ftpConfig.ftp_host,
+//       remote_path: remotePath,
 //     });
 //   } catch (error) {
 //     console.error("❌ API Error:", error);
-//     return json({ error: error.message }, { status: 500 });
+
+//     if (csvFilePath) {
+//       console.log(`💾 CSV preserved: ${csvFilePath}`);
+//     }
+
+//     // ✅ FIXED: orders always defined
+//     return json(
+//       {
+//         error: error.message,
+//         csv_preserved: csvFilePath || false,
+//         orders_processed: orders.length, // SAFE NOW!
+//       },
+//       { status: 500 },
+//     );
 //   }
 // };
 
 import { json } from "@remix-run/node";
 import { authenticate } from "../../shopify.server";
-import SftpClient from "ssh2-sftp-client";
 import fs from "fs/promises";
 import pool from "../../db.server";
 import { Client } from "basic-ftp";
@@ -216,25 +230,19 @@ export const action = async ({ request }) => {
   const shop = session.shop.replace(".myshopify.com", "");
   const accessToken = session.accessToken;
   const API_VERSION = "2024-01";
-  const client = new Client();
-  client.ftp.verbose = true;
 
   let csvFilePath = null;
-  let orders = []; // ✅ FIXED: Declare at top
+  let orders = [];
 
   try {
-    // 1. 24 hours ago calculate
-    const createdAtMin = (() => {
-      const date = new Date();
-      date.setHours(date.getHours() - 24);
-      return date.toISOString();
-    })();
+    // 1. Last 24 hours
+    const createdAtMin = new Date(
+      Date.now() - 24 * 60 * 60 * 1000,
+    ).toISOString();
+    console.log("Fetching orders since:", createdAtMin);
 
-    console.log(`🔄 Fetching orders since: ${createdAtMin}`);
-
-    // 2. Shopify REST API (Safe fields)
+    // 2. REST API (SAFE: no customer data)
     const url = `https://${shop}.myshopify.com/admin/api/${API_VERSION}/orders.json?created_at_min=${createdAtMin}`;
-
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -244,34 +252,26 @@ export const action = async ({ request }) => {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`Shopify API Error: ${response.statusText}`);
     }
 
     const data = await response.json();
-    orders = data.orders; // ✅ Now defined everywhere
-    console.log(`📦 Found ${orders.length} orders`);
+    orders = data.orders;
+    console.log("Orders:", orders.length);
 
-    // 3. FTP config
-    const storeDomain = session.shop;
-    const [ftpRows] = await pool.query("SELECT * FROM stores WHERE shop = ?", [
-      storeDomain,
+    // 3. Fetch FTP Config
+    const [rows] = await pool.query("SELECT * FROM stores WHERE shop = ?", [
+      session.shop,
     ]);
 
-    if (ftpRows.length === 0) {
-      return json(
-        { error: `❌ FTP config not found for store: ${storeDomain}` },
-        { status: 404 },
-      );
-    }
+    if (rows.length === 0)
+      return json({ error: "FTP config not found" }, { status: 404 });
 
-    const ftpConfig = ftpRows[0];
-    console.log(
-      `🔍 FTP Config: ${ftpConfig.ftp_host}:${ftpConfig.ftp_port} (${ftpConfig.ftp_protocol})`,
-    );
+    const ftpConfig = rows[0];
 
-    // 4. SAFE CSV (No customer data)
+    // 4. Convert to CSV
     const convertToCSV = (ordersData) => {
-      if (!ordersData || ordersData.length === 0) return null;
+      if (!ordersData.length) return null;
 
       const headers = [
         "Order ID",
@@ -284,137 +284,80 @@ export const action = async ({ request }) => {
         "Items Count",
       ];
 
-      const rows = ordersData.map((order) =>
-        [
-          order.id || "",
-          order.order_number || order.name || "",
-          order.created_at || "",
-          order.total_price || 0,
-          order.currency || "",
-          order.financial_status || "",
-          order.fulfillment_status || "unfulfilled",
-          order.line_items?.length || 0,
-        ].map((field) => {
-          const str = String(field);
-          if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-            return `"${str.replace(/"/g, '""')}"`;
-          }
-          return str;
-        }),
-      );
+      const rows = ordersData.map((o) => [
+        o.id,
+        o.order_number || o.name,
+        o.created_at,
+        o.total_price,
+        o.currency,
+        o.financial_status,
+        o.fulfillment_status || "unfulfilled",
+        o.line_items?.length || 0,
+      ]);
 
-      return [headers.join(","), ...rows.map((row) => row.join(","))].join(
-        "\n",
-      );
+      return [
+        headers.join(","),
+        ...rows.map((r) =>
+          r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
+        ),
+      ].join("\n");
     };
 
     const csvContent = convertToCSV(orders);
     if (!csvContent) {
-      return json({
-        success: true,
-        orders: 0,
-        message: "No orders in last 24h",
-      });
+      return json({ success: true, orders: 0, message: "No orders last 24h" });
     }
 
-    // 5. Generate filename
+    // 5. Save CSV file
     const timestamp = new Date()
       .toISOString()
       .replace(/[:.]/g, "-")
       .slice(0, -5);
-    const filename = `shopify_orders_${shop}_${timestamp}.csv`;
+    const filename = `orders_${shop}_${timestamp}.csv`;
     csvFilePath = `/tmp/${filename}`;
 
-    // 6. Save CSV
-    await fs.writeFile(csvFilePath, csvContent, "utf8");
-    console.log(`💾 CSV saved: ${filename} (${orders.length} orders)`);
+    await fs.writeFile(csvFilePath, csvContent);
+    console.log("CSV saved:", filename);
 
-    // 7. FIXED SFTP with fallbacks
-    const remotePath = `/${filename}`;
-    let uploadSuccess = false;
+    // 6. Upload using basic-ftp Client
+    const client = new Client();
+    client.ftp.verbose = true;
 
-    // FTP Port 21
-    try {
-      console.log(`🔄 Trying FTP (port 21)...`);
-      //   const ftp = new SftpClient();
-      await client.access({
-        host: ftpConfig.ftp_host,
-        port: 21,
-        username: ftpConfig.ftp_username,
-        password: ftpConfig.ftp_password,
-        // protocol: "ftp",
-        // timeouts: { connectTimeout: 15000 },
-        secure: false,
-      });
-      //   await ftp.put(csvFilePath, remotePath);
-      //   await ftp.end();
-      console.log(`✅ FTP Success: ${remotePath}`);
-      uploadSuccess = true;
-      client.close();
-    } catch (e) {
-      console.log(`❌ FTP failed: ${e.message}`);
-    }
+    console.log("Connecting to FTP:", ftpConfig.ftp_host);
 
-    // SFTP Original
-    if (!uploadSuccess) {
-      try {
-        console.log(`🔄 Trying SFTP (${ftpConfig.ftp_port || 22})...`);
-        const sftp = new SftpClient();
-        await sftp.connect({
-          host: ftpConfig.ftp_host,
-          port: parseInt(ftpConfig.ftp_port) || 22,
-          username: ftpConfig.ftp_username,
-          password: ftpConfig.ftp_password,
-          protocol: "sftp",
-          timeouts: { connectTimeout: 20000 },
-        });
-        await sftp.put(csvFilePath, remotePath);
-        await sftp.end();
-        console.log(`✅ SFTP Success: ${remotePath}`);
-        uploadSuccess = true;
-      } catch (e) {
-        console.log(`❌ SFTP failed: ${e.message}`);
-      }
-    }
+    await client.access({
+      host: ftpConfig.ftp_host,
+      port: ftpConfig.ftp_port || 21,
+      user: ftpConfig.ftp_username,
+      password: ftpConfig.ftp_password,
+      secure: false, // change to true if FTPS
+    });
 
-    if (!uploadSuccess) {
-      return json(
-        {
-          success: false,
-          orders: orders.length,
-          ftp_failed: true,
-          csv_preserved: csvFilePath,
-          error: "All FTP/SFTP failed",
-          ftp_debug: { host: ftpConfig.ftp_host, port: ftpConfig.ftp_port },
-        },
-        { status: 500 },
-      );
-    }
+    console.log("Uploading file:", filename);
 
-    // 8. Cleanup
+    await client.uploadFrom(csvFilePath, `/${filename}`);
+
+    console.log("FTP Upload Success 🎉");
+
+    client.close();
+
+    // 7. Remove temp file
     await fs.unlink(csvFilePath);
-    csvFilePath = null;
 
     return json({
       success: true,
       orders: orders.length,
+      uploaded_to: ftpConfig.ftp_host,
       filename,
-      ftp_server: ftpConfig.ftp_host,
-      remote_path: remotePath,
     });
   } catch (error) {
-    console.error("❌ API Error:", error);
+    console.error("Error:", error);
 
-    if (csvFilePath) {
-      console.log(`💾 CSV preserved: ${csvFilePath}`);
-    }
-
-    // ✅ FIXED: orders always defined
     return json(
       {
         error: error.message,
+        orders: orders.length,
         csv_preserved: csvFilePath || false,
-        orders_processed: orders.length, // SAFE NOW!
       },
       { status: 500 },
     );
