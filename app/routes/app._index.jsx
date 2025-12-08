@@ -436,7 +436,7 @@ export const action = async ({ request }) => {
   const host = form.get("host");
   const port = form.get("port");
   const username = form.get("username");
-  const password = form.get("password");
+  const passwordValue = form.get("password");
   const time_range = form.get("time_range"); // ⭐ FIXED
 
   const storage = new MySQLSessionStorage();
@@ -446,7 +446,7 @@ export const action = async ({ request }) => {
     host,
     port,
     username,
-    password,
+    password: passwordValue,
     time_range,
   });
 
