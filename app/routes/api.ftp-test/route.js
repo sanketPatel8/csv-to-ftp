@@ -1,158 +1,74 @@
 import { json } from "@remix-run/node";
-import { authenticate } from "../../shopify.server";
-import SftpClient from "ssh2-sftp-client";
-import pool from "../../db.server";
+import { Client } from "basic-ftp";
 
 export const config = { runtime: "nodejs" };
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
-  const storeDomain = session.shop;
+  const client = new Client();
+  client.ftp.verbose = true; // Enable logging for debugging
+
+  let testResults = {
+    host: "ftp.xcoder.a2hosted.com",
+    username: "ACME@xcoder.a2hosted.com",
+    all_tests_failed: true,
+  };
 
   try {
-    // 1. FTP config fetch
-    const [ftpRows] = await pool.query("SELECT * FROM stores WHERE shop = ?", [
-      storeDomain,
-    ]);
+    console.log("🔄 Testing FTP (port 21)...");
 
-    if (ftpRows.length === 0) {
-      return json(
-        {
-          success: false,
-          error: `❌ No FTP config found for ${storeDomain}`,
-        },
-        { status: 404 },
-      );
-    }
-
-    const ftpConfig = ftpRows[0];
-    console.log("🔍 Testing FTP connection:", {
-      host: ftpConfig.ftp_host,
-      port: ftpConfig.ftp_port || "NOT SET",
-      protocol: ftpConfig.ftp_protocol || "NOT SET",
-      username: ftpConfig.ftp_username ? "SET" : "MISSING",
+    // Connect using basic-ftp
+    await client.access({
+      host: "ftp.xcoder.a2hosted.com",
+      port: 21,
+      user: "ACME@xcoder.a2hosted.com",
+      password: ";dY1pMYg9Gr8;211",
+      secure: false, // Plain FTP (not FTPS)
     });
 
-    let testResults = {
-      host: ftpConfig.ftp_host,
-      username: ftpConfig.ftp_username ? "OK" : "MISSING",
-      all_tests_failed: true,
+    console.log("✅ FTP Connected successfully!");
+
+    // Optional: Test listing directory
+    const list = await client.list();
+    console.log("Directory contents:", list);
+
+    testResults.ftp_port21 = {
+      success: true,
+      message: "✅ Connected!",
+      files_found: list.length,
+    };
+    testResults.all_tests_failed = false;
+
+    client.close();
+
+    return json({
+      success: true,
+      working_config: {
+        host: "ftp.xcoder.a2hosted.com",
+        port: 21,
+        username: "ACME@xcoder.a2hosted.com",
+        protocol: "ftp",
+      },
+      message: "✅ FTP Port 21 works! Connection successful.",
+      test_results: testResults,
+      directory_listing: list,
+    });
+  } catch (error) {
+    console.log("❌ FTP failed:", error.message);
+    testResults.ftp_port21 = {
+      success: false,
+      error: error.message,
+      code: error.code,
     };
 
-    // 2. Test FTP Port 21 (Most Reliable)
-    try {
-      console.log("🔄 Testing FTP (port 21)...");
-      const ftp = new SftpClient();
-      await ftp.connect({
-        host: ftpConfig.ftp_host,
-        port: 21,
-        username: ftpConfig.ftp_username,
-        password: ftpConfig.ftp_password,
-        protocol: "ftp",
-        timeouts: { connectTimeout: 10000 },
-      });
-      await ftp.end();
+    client.close();
 
-      testResults.ftp_port21 = { success: true, time: "✅ Connected!" };
-      testResults.all_tests_failed = false;
-      console.log("✅ FTP Port 21: SUCCESS");
-
-      return json({
-        success: true,
-        working_config: { protocol: "ftp", port: 21 },
-        message: "FTP Port 21 works perfectly! Use this in your main API.",
-        test_results: testResults,
-      });
-    } catch (ftpError) {
-      console.log("❌ FTP Port 21 failed:", ftpError.message);
-      testResults.ftp_port21 = { success: false, error: ftpError.message };
-    }
-
-    // 3. Test SFTP Port 22
-    try {
-      console.log("🔄 Testing SFTP (port 22)...");
-      const sftp22 = new SftpClient();
-      await sftp22.connect({
-        host: ftpConfig.ftp_host,
-        port: parseInt(ftpConfig.ftp_port) || 22,
-        username: ftpConfig.ftp_username,
-        password: ftpConfig.ftp_password,
-        protocol: "sftp",
-        timeouts: { connectTimeout: 10000 },
-      });
-      await sftp22.end();
-
-      testResults.sftp_port22 = { success: true, time: "✅ Connected!" };
-      testResults.all_tests_failed = false;
-      console.log("✅ SFTP Port 22: SUCCESS");
-
-      return json({
-        success: true,
-        working_config: { protocol: "sftp", port: ftpConfig.ftp_port || 22 },
-        message: "SFTP works! Use your current config.",
-        test_results: testResults,
-      });
-    } catch (sftpError) {
-      console.log("❌ SFTP Port 22 failed:", sftpError.message);
-      testResults.sftp_port22 = { success: false, error: sftpError.message };
-    }
-
-    // 4. Test SFTP Port 2222 (Common Alternative)
-    try {
-      console.log("🔄 Testing SFTP (port 2222)...");
-      const sftp2222 = new SftpClient();
-      await sftp2222.connect({
-        host: ftpConfig.ftp_host,
-        port: 2222,
-        username: ftpConfig.ftp_username,
-        password: ftpConfig.ftp_password,
-        protocol: "sftp",
-        timeouts: { connectTimeout: 5000 },
-      });
-      await sftp2222.end();
-
-      testResults.sftp_port2222 = { success: true, time: "✅ Connected!" };
-      testResults.all_tests_failed = false;
-      console.log("✅ SFTP Port 2222: SUCCESS");
-
-      return json({
-        success: true,
-        working_config: { protocol: "sftp", port: 2222 },
-        message: "SFTP Port 2222 works! Update your DB port to 2222.",
-        test_results: testResults,
-      });
-    } catch (port2222Error) {
-      console.log("❌ SFTP Port 2222 failed:", port2222Error.message);
-      testResults.sftp_port2222 = {
-        success: false,
-        error: port2222Error.message,
-      };
-    }
-
-    // 5. All tests failed
     return json(
       {
         success: false,
-        error: "❌ All FTP/SFTP tests failed",
-        fix_suggestions: [
-          "1. Check FTP host/IP address",
-          "2. Verify username/password",
-          "3. Open ports 21(FTP) or 22/2222(SFTP) on server",
-          "4. Try IP address instead of domain",
-          "5. Test with FileZilla manually",
-        ],
+        error: "FTP connection failed",
         debug: testResults,
-        next_step: "Use FileZilla to test manually first",
-      },
-      { status: 500 },
-    );
-  } catch (error) {
-    console.error("❌ FTP Test Error:", error);
-    return json(
-      {
-        success: false,
-        error: error.message,
-        ftp_config_missing: true,
+        error_details: error.message,
+        fix: "Check credentials, firewall rules, or server IP restrictions",
       },
       { status: 500 },
     );

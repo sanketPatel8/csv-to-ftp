@@ -207,6 +207,7 @@ import { authenticate } from "../../shopify.server";
 import SftpClient from "ssh2-sftp-client";
 import fs from "fs/promises";
 import pool from "../../db.server";
+import { Client } from "basic-ftp";
 
 export const config = { runtime: "nodejs" };
 
@@ -215,6 +216,8 @@ export const action = async ({ request }) => {
   const shop = session.shop.replace(".myshopify.com", "");
   const accessToken = session.accessToken;
   const API_VERSION = "2024-01";
+  const client = new Client();
+  client.ftp.verbose = true;
 
   let csvFilePath = null;
   let orders = []; // ✅ FIXED: Declare at top
@@ -333,19 +336,21 @@ export const action = async ({ request }) => {
     // FTP Port 21
     try {
       console.log(`🔄 Trying FTP (port 21)...`);
-      const ftp = new SftpClient();
-      await ftp.connect({
+      //   const ftp = new SftpClient();
+      await client.access({
         host: ftpConfig.ftp_host,
         port: 21,
         username: ftpConfig.ftp_username,
         password: ftpConfig.ftp_password,
-        protocol: "ftp",
-        timeouts: { connectTimeout: 15000 },
+        // protocol: "ftp",
+        // timeouts: { connectTimeout: 15000 },
+        secure: false,
       });
-      await ftp.put(csvFilePath, remotePath);
-      await ftp.end();
+      //   await ftp.put(csvFilePath, remotePath);
+      //   await ftp.end();
       console.log(`✅ FTP Success: ${remotePath}`);
       uploadSuccess = true;
+      client.close();
     } catch (e) {
       console.log(`❌ FTP failed: ${e.message}`);
     }
