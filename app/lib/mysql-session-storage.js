@@ -149,4 +149,45 @@ export class MySQLSessionStorage {
       return false;
     }
   }
+
+  /** -------------------------
+   * SAVE / UPDATE FTP SETTINGS
+   * ------------------------- */
+  async saveFtpConfig(shop, config) {
+    try {
+      const { protocol, host, port, username, password } = config;
+
+      const [result] = await pool.query(
+        `
+        UPDATE ${this.table}
+        SET 
+          ftp_protocol = ?,
+          ftp_host = ?,
+          ftp_port = ?,
+          ftp_username = ?,
+          ftp_password = ?,
+          updated_at = NOW()
+        WHERE shop = ?
+        `,
+        [protocol, host, port, username, password, shop],
+      );
+
+      // If UPDATE changed nothing → insert new row
+      if (result.affectedRows === 0) {
+        await pool.query(
+          `
+          INSERT INTO ${this.table} 
+            (shop, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, NOW())
+          `,
+          [shop, protocol, host, port, username, password],
+        );
+      }
+
+      return true;
+    } catch (err) {
+      console.error("❌ saveFtpConfig error:", err);
+      return false;
+    }
+  }
 }
