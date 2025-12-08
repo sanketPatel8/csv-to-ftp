@@ -16,7 +16,7 @@ const shopify = shopifyApp({
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.January25,
   scopes: process.env.SCOPES?.split(","),
-  appUrl: "https://trainer-isp-non-means.trycloudflare.com" || "",
+  appUrl: "https://csv-to-ftp.vercel.app" || "",
   authPathPrefix: "/auth",
 
   // ✔ Use MySQL session storage (NOT Prisma)
