@@ -391,7 +391,7 @@ export default function ConnectionSettings() {
               Fetch last 24h orders → generate CSV → upload to FTP/SFTP.
             </Text>
 
-            <fetcher.Form method="post" action="/api.daily-orders">
+            <fetcher.Form method="post" action="/api/daily-orders">
               <Button submit primary loading={isSubmitting}>
                 🚀 Generate CSV & Upload
               </Button>
