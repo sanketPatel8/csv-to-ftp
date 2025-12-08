@@ -190,4 +190,33 @@ export class MySQLSessionStorage {
       return false;
     }
   }
+
+  /** -------------------------
+   * GET FTP SETTINGS FOR SHOP
+   * ------------------------- */
+  async getFtpConfig(shop) {
+    try {
+      const [rows] = await pool.query(
+        `
+      SELECT 
+        ftp_protocol AS protocol,
+        ftp_host AS host,
+        ftp_port AS port,
+        ftp_username AS username,
+        ftp_password AS password
+      FROM ${this.table}
+      WHERE shop = ?
+      LIMIT 1
+      `,
+        [shop],
+      );
+
+      if (rows.length === 0) return null;
+
+      return rows[0];
+    } catch (err) {
+      console.error("❌ getFtpConfig error:", err);
+      return null;
+    }
+  }
 }
