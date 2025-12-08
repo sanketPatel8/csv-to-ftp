@@ -4,6 +4,8 @@ import SftpClient from "ssh2-sftp-client";
 import fs from "fs/promises";
 import pool from "../../db.server"; // FTP config mate
 
+export const config = { runtime: "nodejs" };
+
 export const action = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = session.shop.replace(".myshopify.com", ""); // Clean shop name
