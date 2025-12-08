@@ -404,6 +404,29 @@ export default function ConnectionSettings() {
                   {JSON.stringify(fetcher.data)}
                 </Banner>
               )}
+
+              <Button
+                primary
+                onClick={async () => {
+                  const response = await fetch("/api/ftp-test", {
+                    method: "POST",
+                  });
+                  const result = await response.json();
+
+                  if (result.success) {
+                    alert(
+                      `✅ FTP WORKS!\nProtocol: ${result.working_config.protocol}\nPort: ${result.working_config.port}`,
+                    );
+                  } else {
+                    alert(
+                      `❌ FTP FAILED\n${result.error}\n\nNext: ${result.next_step || "Check console"}`,
+                    );
+                    console.log("Full FTP test results:", result);
+                  }
+                }}
+              >
+                🔍 Test FTP Connection (5s)
+              </Button>
             </fetcher.Form>
           </BlockStack>
         </Card>
