@@ -1,189 +1,3 @@
-// // import { useState } from "react";
-// // import { useFetcher } from "@remix-run/react";
-// // import {
-// //   Page,
-// //   Card,
-// //   Text,
-// //   BlockStack,
-// //   Select,
-// //   TextField,
-// //   Button,
-// //   InlineStack,
-// //   Banner,
-// //   InlineGrid,
-// // } from "@shopify/polaris";
-// // import { TitleBar } from "@shopify/app-bridge-react";
-// // import { authenticate } from "../shopify.server";
-// // import { MySQLSessionStorage } from "../lib/mysql-session-storage.js";
-
-// // /* ---------------------- LOADER ---------------------- */
-// // export const loader = async ({ request }) => {
-// //   const { session } = await authenticate.admin(request);
-// //   return { shop: session.shop };
-// // };
-
-// // /* ---------------------- ACTION ---------------------- */
-// // export const action = async ({ request }) => {
-// //   const { session } = await authenticate.admin(request);
-// //   const shop = session.shop;
-
-// //   const form = await request.formData();
-// //   const protocol = form.get("protocol");
-// //   const host = form.get("host");
-// //   const port = form.get("port");
-// //   const username = form.get("username");
-// //   const password = form.get("password");
-
-// //   const storage = new MySQLSessionStorage();
-
-// //   await storage.saveFtpConfig(shop, {
-// //     protocol,
-// //     host,
-// //     port,
-// //     username,
-// //     password,
-// //   });
-
-// //   return { success: true };
-// // };
-
-// // /* ---------------------- COMPONENT ---------------------- */
-// // export default function ConnectionSettings() {
-// //   const fetcher = useFetcher();
-// //   const isSubmitting = fetcher.state === "submitting";
-
-// //   const [protocol, setProtocol] = useState("SFTP");
-// //   const [host, setHost] = useState("");
-// //   const [port, setPort] = useState("22");
-// //   const [username, setUsername] = useState("");
-// //   const [password, setPassword] = useState("");
-
-// //   return (
-// //     <Page>
-// //       <TitleBar title="Connection Settings" />
-
-// //       <InlineGrid columns={{ sm: 1, md: 2 }} gap="400">
-// //         {/* --------------------------------------------------- */}
-// //         {/* LEFT COLUMN : FTP / SFTP CONFIGURATION */}
-// //         {/* --------------------------------------------------- */}
-// //         <Card padding="400">
-// //           <BlockStack gap="400">
-// //             <Text as="h2" variant="headingXl">
-// //               Connection Settings
-// //             </Text>
-// //             <Text as="p" variant="bodyMd" tone="subdued">
-// //               Store your secure FTP/SFTP details for the Shopify app.
-// //             </Text>
-
-// //             <fetcher.Form method="post">
-// //               <BlockStack gap="400">
-// //                 <Select
-// //                   label="Protocol"
-// //                   options={[
-// //                     { label: "SFTP (Recommended)", value: "SFTP" },
-// //                     { label: "FTP", value: "FTP" },
-// //                   ]}
-// //                   value={protocol}
-// //                   onChange={setProtocol}
-// //                   name="protocol"
-// //                 />
-
-// //                 <TextField
-// //                   label="Host / Server Address"
-// //                   placeholder="sftp.example.com"
-// //                   value={host}
-// //                   onChange={setHost}
-// //                   name="host"
-// //                 />
-
-// //                 <InlineStack gap="200">
-// //                   <TextField
-// //                     label="Port"
-// //                     value={port}
-// //                     onChange={setPort}
-// //                     name="port"
-// //                   />
-// //                   <TextField
-// //                     label="Username"
-// //                     value={username}
-// //                     onChange={setUsername}
-// //                     name="username"
-// //                   />
-// //                 </InlineStack>
-
-// //                 <TextField
-// //                   label="Password or Private Key"
-// //                   type="password"
-// //                   value={password}
-// //                   onChange={setPassword}
-// //                   name="password"
-// //                 />
-
-// //                 <Button submit variant="primary" loading={isSubmitting}>
-// //                   Save Configuration
-// //                 </Button>
-// //               </BlockStack>
-// //             </fetcher.Form>
-// //           </BlockStack>
-// //         </Card>
-
-// //         {/* --------------------------------------------------- */}
-// //         {/* RIGHT COLUMN : EXPORT ORDERS */}
-// //         {/* --------------------------------------------------- */}
-// //         <Card padding="400">
-// //           <BlockStack gap="400">
-// //             <Text as="h2" variant="headingXl">
-// //               Export Orders (Last 24 hours)
-// //             </Text>
-
-// //             <Text as="p" tone="subdued">
-// //               Fetch last 24h orders → generate CSV → upload to FTP/SFTP.
-// //             </Text>
-
-// //             <fetcher.Form method="post" action="/api/daily-orders">
-// //               <Button submit primary loading={isSubmitting}>
-// //                 🚀 Generate CSV & Upload
-// //               </Button>
-
-// //               {fetcher.data && (
-// //                 <Banner
-// //                   status={fetcher.data.success ? "success" : "critical"}
-// //                   title={fetcher.data.success ? "Success" : "Error"}
-// //                 >
-// //                   {JSON.stringify(fetcher.data)}
-// //                 </Banner>
-// //               )}
-
-// //               <Button
-// //                 primary
-// //                 onClick={async () => {
-// //                   const response = await fetch("/api/ftp-test", {
-// //                     method: "POST",
-// //                   });
-// //                   const result = await response.json();
-
-// //                   if (result.success) {
-// //                     alert(
-// //                       `✅ FTP WORKS!\nProtocol: ${result.working_config.protocol}\nPort: ${result.working_config.port}`,
-// //                     );
-// //                   } else {
-// //                     alert(
-// //                       `❌ FTP FAILED\n${result.error}\n\nNext: ${result.next_step || "Check console"}`,
-// //                     );
-// //                     console.log("Full FTP test results:", result);
-// //                   }
-// //                 }}
-// //               >
-// //                 🔍 Test FTP Connection (5s)
-// //               </Button>
-// //             </fetcher.Form>
-// //           </BlockStack>
-// //         </Card>
-// //       </InlineGrid>
-// //     </Page>
-// //   );
-// // }
-
 // import { useState, useEffect } from "react";
 // import { useFetcher, useLoaderData } from "@remix-run/react";
 // import {
@@ -201,6 +15,7 @@
 // import { TitleBar } from "@shopify/app-bridge-react";
 // import { authenticate } from "../shopify.server";
 // import { MySQLSessionStorage } from "../lib/mysql-session-storage.js";
+// import pool from "../db.server.js";
 
 // /* ---------------------- LOADER ---------------------- */
 // export const loader = async ({ request }) => {
@@ -208,11 +23,18 @@
 //   const shop = session.shop;
 
 //   const storage = new MySQLSessionStorage();
-//   const ftpConfig = await storage.getFtpConfig(shop); // ⭐ Fetch stored details
+//   const ftpConfig = await storage.getFtpConfig(shop);
+
+//   // 🔥 FETCH last_cron_run ALSO
+//   const [rows] = await pool.query(
+//     "SELECT last_cron_run FROM stores WHERE shop = ? LIMIT 1",
+//     [shop],
+//   );
 
 //   return {
 //     shop,
 //     config: ftpConfig || null,
+//     lastCron: rows.length ? rows[0].last_cron_run : null,
 //   };
 // };
 
@@ -226,8 +48,8 @@
 //   const host = form.get("host");
 //   const port = form.get("port");
 //   const username = form.get("username");
-//   const password = form.get("password");
-//   const timeRange = form.get("timeRange");
+//   const passwordValue = form.get("password");
+//   const time_range = form.get("time_range"); // ⭐ FIXED
 
 //   const storage = new MySQLSessionStorage();
 
@@ -236,8 +58,8 @@
 //     host,
 //     port,
 //     username,
-//     password,
-//     time_range: timeRange,
+//     password: passwordValue,
+//     time_range,
 //   });
 
 //   return { success: true };
@@ -246,11 +68,11 @@
 // /* ---------------------- COMPONENT ---------------------- */
 // export default function ConnectionSettings() {
 //   const fetcher = useFetcher();
-//   const { config } = useLoaderData(); // ⭐ Load saved DB config
+//   const { config } = useLoaderData();
 
 //   const isSubmitting = fetcher.state === "submitting";
 
-//   /* ---------- Set default values from database ---------- */
+//   /* ---------- Load from DB or set defaults ---------- */
 //   const [protocol, setProtocol] = useState(config?.protocol || "SFTP");
 //   const [host, setHost] = useState(config?.host || "");
 //   const [port, setPort] = useState(
@@ -260,7 +82,7 @@
 //   const [password, setPassword] = useState(config?.password || "");
 //   const [timeRange, setTimeRange] = useState(config?.time_range || "24h");
 
-//   /* ---------- Auto-update PORT when protocol changes ---------- */
+//   /* ---------- Auto-change port when protocol changes ---------- */
 //   useEffect(() => {
 //     if (!config) {
 //       setPort(protocol === "FTP" ? "21" : "22");
@@ -272,20 +94,16 @@
 //       <TitleBar title="Connection Settings" />
 
 //       <InlineGrid columns={{ sm: 1, md: 2 }} gap="400">
-//         {/* --------------------------------------------------- */}
-//         {/* LEFT COLUMN : FTP / SFTP CONFIGURATION */}
-//         {/* --------------------------------------------------- */}
+//         {/* LEFT SIDE */}
 //         <Card padding="400">
 //           <BlockStack gap="400">
 //             <Text as="h2" variant="headingXl">
 //               Connection Settings
 //             </Text>
-//             <Text as="p" variant="bodyMd" tone="subdued">
-//               Store your secure FTP/SFTP details for the Shopify app.
-//             </Text>
 
 //             <fetcher.Form method="post">
 //               <BlockStack gap="400">
+//                 {/* PROTOCOL */}
 //                 <Select
 //                   label="Protocol"
 //                   options={[
@@ -297,6 +115,7 @@
 //                   name="protocol"
 //                 />
 
+//                 {/* HOST */}
 //                 <TextField
 //                   label="Host / Server Address"
 //                   placeholder="sftp.example.com"
@@ -305,6 +124,7 @@
 //                   name="host"
 //                 />
 
+//                 {/* PORT + USERNAME */}
 //                 <InlineStack gap="200">
 //                   <TextField
 //                     label="Port"
@@ -320,6 +140,7 @@
 //                   />
 //                 </InlineStack>
 
+//                 {/* PASSWORD */}
 //                 <TextField
 //                   label="Password or Private Key"
 //                   type="password"
@@ -328,6 +149,7 @@
 //                   name="password"
 //                 />
 
+//                 {/* TIME RANGE */}
 //                 <Select
 //                   label="Order Time Range"
 //                   options={[
@@ -346,13 +168,14 @@
 //                   name="time_range"
 //                 />
 
+//                 {/* SAVE BUTTON */}
 //                 <Button submit variant="primary" loading={isSubmitting}>
 //                   Save Configuration
 //                 </Button>
 
 //                 {fetcher.data?.success && (
 //                   <Banner status="success">
-//                     FTP/SFTP configuration saved successfully!
+//                     Configuration saved successfully!
 //                   </Banner>
 //                 )}
 //               </BlockStack>
@@ -360,21 +183,15 @@
 //           </BlockStack>
 //         </Card>
 
-//         {/* --------------------------------------------------- */}
-//         {/* RIGHT COLUMN : EXPORT ORDERS */}
-//         {/* --------------------------------------------------- */}
+//         {/* RIGHT SIDE */}
 //         <Card padding="400">
 //           <BlockStack gap="400">
 //             <Text as="h2" variant="headingXl">
-//               Export Orders (Last 24 hours)
-//             </Text>
-
-//             <Text as="p" tone="subdued">
-//               Fetch last 24h orders → generate CSV → upload to FTP/SFTP.
+//               Export Orders
 //             </Text>
 
 //             <fetcher.Form method="post" action="/api/daily-orders">
-//               <Button submit primary loading={isSubmitting}>
+//               <Button primary submit loading={isSubmitting}>
 //                 🚀 Generate CSV & Upload
 //               </Button>
 
@@ -411,6 +228,7 @@ import {
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { MySQLSessionStorage } from "../lib/mysql-session-storage.js";
+import pool from "../db.server.js";
 
 /* ---------------------- LOADER ---------------------- */
 export const loader = async ({ request }) => {
@@ -420,9 +238,16 @@ export const loader = async ({ request }) => {
   const storage = new MySQLSessionStorage();
   const ftpConfig = await storage.getFtpConfig(shop);
 
+  // Get last cron run time
+  const [rows] = await pool.query(
+    "SELECT last_cron_run FROM stores WHERE shop = ? LIMIT 1",
+    [shop],
+  );
+
   return {
     shop,
     config: ftpConfig || null,
+    lastCron: rows.length ? rows[0].last_cron_run : null,
   };
 };
 
@@ -437,7 +262,7 @@ export const action = async ({ request }) => {
   const port = form.get("port");
   const username = form.get("username");
   const passwordValue = form.get("password");
-  const time_range = form.get("time_range"); // ⭐ FIXED
+  const time_range = form.get("time_range");
 
   const storage = new MySQLSessionStorage();
 
@@ -453,14 +278,65 @@ export const action = async ({ request }) => {
   return { success: true };
 };
 
+/* ---------------------- TIME CALCULATION HELPERS ---------------------- */
+function formatDateTime(date) {
+  if (!date) return "Never";
+  return new Date(date).toLocaleString();
+}
+
+function getNextRunTime(last, range) {
+  if (!last) return "Waiting for first cron execution";
+
+  const next = new Date(last);
+
+  switch (range) {
+    case "1h":
+      next.setHours(next.getHours() + 1);
+      break;
+    case "6h":
+      next.setHours(next.getHours() + 6);
+      break;
+    case "12h":
+      next.setHours(next.getHours() + 12);
+      break;
+    case "24h":
+      next.setHours(next.getHours() + 24);
+      break;
+    case "7d":
+      next.setDate(next.getDate() + 7);
+      break;
+    case "30d":
+      next.setDate(next.getDate() + 30);
+      break;
+    case "90d":
+      next.setDate(next.getDate() + 90);
+      break;
+    case "1y":
+      next.setFullYear(next.getFullYear() + 1);
+      break;
+    case "all":
+      return "Cron Runs → Fetches ALL Orders";
+    default:
+      next.setHours(next.getHours() + 24);
+  }
+
+  return next.toLocaleString();
+}
+
 /* ---------------------- COMPONENT ---------------------- */
 export default function ConnectionSettings() {
   const fetcher = useFetcher();
-  const { config } = useLoaderData();
+  const { config, lastCron } = useLoaderData();
 
   const isSubmitting = fetcher.state === "submitting";
 
-  /* ---------- Load from DB or set defaults ---------- */
+  // Convert last cron run readable
+  const lastCronDisplay = formatDateTime(lastCron);
+
+  // Next run time based on time_range
+  const nextRunDisplay = getNextRunTime(lastCron, config?.time_range);
+
+  /* ---------- Load values ---------- */
   const [protocol, setProtocol] = useState(config?.protocol || "SFTP");
   const [host, setHost] = useState(config?.host || "");
   const [port, setPort] = useState(
@@ -470,7 +346,7 @@ export default function ConnectionSettings() {
   const [password, setPassword] = useState(config?.password || "");
   const [timeRange, setTimeRange] = useState(config?.time_range || "24h");
 
-  /* ---------- Auto-change port when protocol changes ---------- */
+  /* Auto-update port on protocol change */
   useEffect(() => {
     if (!config) {
       setPort(protocol === "FTP" ? "21" : "22");
@@ -485,13 +361,22 @@ export default function ConnectionSettings() {
         {/* LEFT SIDE */}
         <Card padding="400">
           <BlockStack gap="400">
+            {/* 🔥 CRON INFO BANNER */}
+            <Banner status="info">
+              <p>
+                <b>Last Cron Run:</b> {lastCronDisplay}
+              </p>
+              <p>
+                <b>Next Scheduled Run:</b> {nextRunDisplay}
+              </p>
+            </Banner>
+
             <Text as="h2" variant="headingXl">
-              Connection Settings
+              FTP / SFTP Configuration
             </Text>
 
             <fetcher.Form method="post">
               <BlockStack gap="400">
-                {/* PROTOCOL */}
                 <Select
                   label="Protocol"
                   options={[
@@ -503,7 +388,6 @@ export default function ConnectionSettings() {
                   name="protocol"
                 />
 
-                {/* HOST */}
                 <TextField
                   label="Host / Server Address"
                   placeholder="sftp.example.com"
@@ -512,7 +396,6 @@ export default function ConnectionSettings() {
                   name="host"
                 />
 
-                {/* PORT + USERNAME */}
                 <InlineStack gap="200">
                   <TextField
                     label="Port"
@@ -528,16 +411,14 @@ export default function ConnectionSettings() {
                   />
                 </InlineStack>
 
-                {/* PASSWORD */}
                 <TextField
-                  label="Password or Private Key"
+                  label="Password / Private Key"
                   type="password"
                   value={password}
                   onChange={setPassword}
                   name="password"
                 />
 
-                {/* TIME RANGE */}
                 <Select
                   label="Order Time Range"
                   options={[
@@ -556,15 +437,12 @@ export default function ConnectionSettings() {
                   name="time_range"
                 />
 
-                {/* SAVE BUTTON */}
                 <Button submit variant="primary" loading={isSubmitting}>
-                  Save Configuration
+                  Save Settings
                 </Button>
 
                 {fetcher.data?.success && (
-                  <Banner status="success">
-                    Configuration saved successfully!
-                  </Banner>
+                  <Banner status="success">Settings saved successfully!</Banner>
                 )}
               </BlockStack>
             </fetcher.Form>
@@ -575,7 +453,7 @@ export default function ConnectionSettings() {
         <Card padding="400">
           <BlockStack gap="400">
             <Text as="h2" variant="headingXl">
-              Export Orders
+              Export Orders Now
             </Text>
 
             <fetcher.Form method="post" action="/api/daily-orders">
@@ -583,14 +461,14 @@ export default function ConnectionSettings() {
                 🚀 Generate CSV & Upload
               </Button>
 
-              {fetcher.data && (
+              {/* {fetcher.data && (
                 <Banner
                   status={fetcher.data.success ? "success" : "critical"}
                   title={fetcher.data.success ? "Success" : "Error"}
                 >
                   {JSON.stringify(fetcher.data)}
                 </Banner>
-              )}
+              )} */}
             </fetcher.Form>
           </BlockStack>
         </Card>
