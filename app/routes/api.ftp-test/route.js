@@ -8,8 +8,8 @@ export const action = async ({ request }) => {
   client.ftp.verbose = true; // Enable logging for debugging
 
   let testResults = {
-    host: "ftp.xcoder.a2hosted.com",
-    username: "ACME@xcoder.a2hosted.com",
+    host: "bellevillecastrol.com",
+    username: "developer@bellevillecastrol.com",
     all_tests_failed: true,
   };
 
@@ -18,10 +18,10 @@ export const action = async ({ request }) => {
 
     // Connect using basic-ftp
     await client.access({
-      host: "ftp.xcoder.a2hosted.com",
+      host: "bellevillecastrol.com",
       port: 21,
-      user: "ACME@xcoder.a2hosted.com",
-      password: ";dY1pMYg9Gr8;211",
+      user: "developer@bellevillecastrol.com",
+      password: "Welcome@456##",
       secure: false, // Plain FTP (not FTPS)
     });
 
@@ -43,9 +43,9 @@ export const action = async ({ request }) => {
     return json({
       success: true,
       working_config: {
-        host: "ftp.xcoder.a2hosted.com",
+        host: "bellevillecastrol.com",
         port: 21,
-        username: "ACME@xcoder.a2hosted.com",
+        username: "developer@bellevillecastrol.com",
         protocol: "ftp",
       },
       message: "✅ FTP Port 21 works! Connection successful.",
