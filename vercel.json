@@ -1,22 +1,3 @@
 {
-  "version": 2,
-  "functions": {
-    "api/cron.js": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 60,
-      "memory": 1024
-    }
-  },
-  "routes": [
-    {
-      "src": "/api/cron",
-      "dest": "/api/cron/route.js"
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron",
-      "schedule": "0 * * * *"
-    }
-  ]
+  "version": 2
 }
