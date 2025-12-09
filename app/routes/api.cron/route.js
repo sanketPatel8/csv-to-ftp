@@ -893,12 +893,15 @@ export const action = async () => {
       port: store.ftp_port || 21,
       user: store.ftp_username,
       password: store.ftp_password,
-      secure: false,
+      secure: true,
+      secureOptions: {
+        rejectUnauthorized: false,
+      },
       timeout: 50000,
     });
 
     // Enable passive mode
-    client.ftp.passive = false;
+    client.ftp.passive = true;
 
     await client.uploadFrom(csvFilePath, `/${filename}`);
     client.close();
