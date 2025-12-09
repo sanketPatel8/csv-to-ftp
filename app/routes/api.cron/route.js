@@ -686,6 +686,7 @@ export const action = async () => {
       user: store.ftp_username,
       password: store.ftp_password,
       secure: false,
+      timeout: 50000,
     });
 
     await client.uploadFrom(csvFilePath, `/${filename}`);
