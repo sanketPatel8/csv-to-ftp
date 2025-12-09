@@ -1,3 +1,22 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "version": 2,
+  "functions": {
+    "api/cron.js": {
+      "runtime": "nodejs18.x",
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/daily-orders",
+      "dest": "/api/daily-orders/route.js"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/daily-orders",
+      "schedule": "0 * * * *"
+    }
+  ]
 }
