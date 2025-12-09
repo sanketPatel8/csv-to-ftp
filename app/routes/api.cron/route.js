@@ -405,58 +405,121 @@ function getCreatedAtMin(range) {
   return new Date(now - (map[range] || map["24h"])).toISOString();
 }
 
-// Convert orders to CSV with customer and product details
+// Format date to match Shopify format: 2025-11-06 15:24:16 +0530
+function formatShopifyDate(dateString) {
+  if (!dateString) return "";
+
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+
+  // Get timezone offset
+  const offset = -date.getTimezoneOffset();
+  const offsetHours = String(Math.floor(Math.abs(offset) / 60)).padStart(
+    2,
+    "0",
+  );
+  const offsetMinutes = String(Math.abs(offset) % 60).padStart(2, "0");
+  const offsetSign = offset >= 0 ? "+" : "-";
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} ${offsetSign}${offsetHours}${offsetMinutes}`;
+}
+
+// Format note attributes
+function formatNoteAttributes(noteAttributes) {
+  if (!noteAttributes || noteAttributes.length === 0) return "";
+  return noteAttributes.map((attr) => `${attr.name}: ${attr.value}`).join("\n");
+}
+
+// Convert orders to CSV matching exact Shopify format
 function convertToCSV(ordersData) {
   if (!ordersData.length) return null;
 
+  // Exact Shopify CSV headers (76 columns)
   const headers = [
-    // Order Information
-    "Order ID",
-    "Order Number",
-    "Order Name",
-    "Created At",
-    "Total Price",
-    "Subtotal Price",
-    "Total Tax",
-    "Currency",
+    "Name",
+    "Email",
     "Financial Status",
+    "Paid at",
     "Fulfillment Status",
-
-    // Customer Information
-    "Customer ID",
-    "Customer Email",
-    "Customer First Name",
-    "Customer Last Name",
-    "Customer Phone",
-
-    // Billing Address
-    "Billing Address 1",
-    "Billing Address 2",
+    "Fulfilled at",
+    "Accepts Marketing",
+    "Currency",
+    "Subtotal",
+    "Shipping",
+    "Taxes",
+    "Total",
+    "Discount Code",
+    "Discount Amount",
+    "Shipping Method",
+    "Created at",
+    "Lineitem quantity",
+    "Lineitem name",
+    "Lineitem price",
+    "Lineitem compare at price",
+    "Lineitem sku",
+    "Lineitem requires shipping",
+    "Lineitem taxable",
+    "Lineitem fulfillment status",
+    "Billing Name",
+    "Billing Street",
+    "Billing Address1",
+    "Billing Address2",
+    "Billing Company",
     "Billing City",
-    "Billing Province",
     "Billing Zip",
+    "Billing Province",
     "Billing Country",
-
-    // Shipping Address
-    "Shipping Address 1",
-    "Shipping Address 2",
+    "Billing Phone",
+    "Shipping Name",
+    "Shipping Street",
+    "Shipping Address1",
+    "Shipping Address2",
+    "Shipping Company",
     "Shipping City",
-    "Shipping Province",
     "Shipping Zip",
+    "Shipping Province",
     "Shipping Country",
-
-    // Product/Line Item Information
-    "Product ID",
-    "Variant ID",
-    "Product Title",
-    "Variant Title",
-    "SKU",
+    "Shipping Phone",
+    "Notes",
+    "Note Attributes",
+    "Cancelled at",
+    "Payment Method",
+    "Payment Reference",
+    "Refunded Amount",
     "Vendor",
-    "Quantity",
-    "Unit Price",
-    "Line Total",
-    "Fulfillable Quantity",
-    "Grams",
+    "Outstanding Balance",
+    "Employee",
+    "Location",
+    "Device ID",
+    "Id",
+    "Tags",
+    "Risk Level",
+    "Source",
+    "Lineitem discount",
+    "Tax 1 Name",
+    "Tax 1 Value",
+    "Tax 2 Name",
+    "Tax 2 Value",
+    "Tax 3 Name",
+    "Tax 3 Value",
+    "Tax 4 Name",
+    "Tax 4 Value",
+    "Tax 5 Name",
+    "Tax 5 Value",
+    "Phone",
+    "Receipt Number",
+    "Duties",
+    "Billing Province Name",
+    "Shipping Province Name",
+    "Payment ID",
+    "Payment Terms Name",
+    "Next Payment Due At",
+    "Payment References",
   ];
 
   const rows = [];
@@ -465,119 +528,265 @@ function convertToCSV(ordersData) {
     const customer = order.customer || {};
     const billingAddress = order.billing_address || {};
     const shippingAddress = order.shipping_address || {};
+    const taxLines = order.tax_lines || [];
+    const shippingLines = order.shipping_lines || [];
+    const discountCodes = order.discount_codes || [];
+    const discountApplications = order.discount_applications || [];
 
-    // Create a row for each line item
+    // Calculate total discount
+    const totalDiscount = discountApplications
+      .reduce((sum, disc) => sum + parseFloat(disc.value || 0), 0)
+      .toFixed(2);
+
+    // Get payment method
+    const paymentMethod = order.payment_gateway_names?.length
+      ? `1${order.payment_gateway_names[0]}`
+      : "";
+
+    // Format payment references (can have multiple with " + " separator)
+    const paymentRefs =
+      order.refunds?.map((r) => r.id).join(" + ") ||
+      order.transactions?.[0]?.receipt?.payment_id ||
+      "";
+
     if (order.line_items && order.line_items.length > 0) {
-      order.line_items.forEach((item) => {
+      order.line_items.forEach((item, index) => {
+        const itemTaxLines = item.tax_lines || [];
+
+        // Build lineitem name (product title with variant if exists)
+        const lineitemName =
+          item.variant_title && item.variant_title !== "Default Title"
+            ? `${item.title} - ${item.variant_title}`
+            : item.title;
+
         rows.push([
-          // Order Information
-          order.id || "",
-          order.order_number || "",
+          // Order Info (માત્ર પહેલી line item માં)
           order.name || "",
-          order.created_at || "",
-          order.total_price || "0.00",
-          order.subtotal_price || "0.00",
-          order.total_tax || "0.00",
-          order.currency || "",
-          order.financial_status || "",
-          order.fulfillment_status || "unfulfilled",
+          index === 0 ? order.email || customer.email || "" : "",
+          index === 0 ? order.financial_status || "" : "",
+          index === 0 ? formatShopifyDate(order.processed_at) : "",
+          index === 0 ? order.fulfillment_status || "" : "",
+          index === 0 ? formatShopifyDate(order.fulfilled_at) : "",
+          index === 0 ? (customer.accepts_marketing ? "yes" : "no") : "",
+          index === 0 ? order.currency || "" : "",
+          index === 0 ? order.subtotal_price || "0.00" : "",
+          index === 0 ? shippingLines[0]?.price || "0.00" : "",
+          index === 0 ? order.total_tax || "0.00" : "",
+          index === 0 ? order.total_price || "0.00" : "",
+          index === 0 ? discountCodes[0]?.code || "" : "",
+          index === 0 ? totalDiscount : "",
+          index === 0 ? shippingLines[0]?.title || "" : "",
+          index === 0 ? formatShopifyDate(order.created_at) : "",
 
-          // Customer Information
-          customer.id || "",
-          order.email || customer.email || "",
-          customer.first_name || "",
-          customer.last_name || "",
-          customer.phone || order.phone || "",
-
-          // Billing Address
-          billingAddress.address1 || "",
-          billingAddress.address2 || "",
-          billingAddress.city || "",
-          billingAddress.province || "",
-          billingAddress.zip || "",
-          billingAddress.country || "",
-
-          // Shipping Address
-          shippingAddress.address1 || "",
-          shippingAddress.address2 || "",
-          shippingAddress.city || "",
-          shippingAddress.province || "",
-          shippingAddress.zip || "",
-          shippingAddress.country || "",
-
-          // Product/Line Item Information
-          item.product_id || "",
-          item.variant_id || "",
-          item.title || "",
-          item.variant_title || "",
-          item.sku || "",
-          item.vendor || "",
+          // Line Item Info (દરેક row માં)
           item.quantity || 0,
+          lineitemName || "",
           item.price || "0.00",
-          (parseFloat(item.price || 0) * (item.quantity || 0)).toFixed(2),
-          item.fulfillable_quantity || 0,
-          item.grams || 0,
+          item.compare_at_price || "",
+          item.sku || "",
+          item.requires_shipping ? "true" : "false",
+          item.taxable ? "true" : "false",
+          item.fulfillment_status || "pending",
+
+          // Billing Address (માત્ર પહેલી line item માં)
+          index === 0
+            ? `${billingAddress.first_name || ""} ${billingAddress.last_name || ""}`.trim()
+            : "",
+          index === 0 ? billingAddress.address1 || "" : "",
+          index === 0 ? billingAddress.address1 || "" : "",
+          index === 0 ? billingAddress.address2 || "" : "",
+          index === 0 ? billingAddress.company || "" : "",
+          index === 0 ? billingAddress.city || "" : "",
+          index === 0
+            ? billingAddress.zip
+              ? `'${billingAddress.zip}`
+              : ""
+            : "", // Add ' prefix
+          index === 0
+            ? billingAddress.province_code || billingAddress.province || ""
+            : "",
+          index === 0
+            ? billingAddress.country_code || billingAddress.country || ""
+            : "",
+          index === 0 ? billingAddress.phone || "" : "",
+
+          // Shipping Address (માત્ર પહેલી line item માં)
+          index === 0
+            ? `${shippingAddress.first_name || ""} ${shippingAddress.last_name || ""}`.trim()
+            : "",
+          index === 0 ? shippingAddress.address1 || "" : "",
+          index === 0 ? shippingAddress.address1 || "" : "",
+          index === 0 ? shippingAddress.address2 || "" : "",
+          index === 0 ? shippingAddress.company || "" : "",
+          index === 0 ? shippingAddress.city || "" : "",
+          index === 0
+            ? shippingAddress.zip
+              ? `'${shippingAddress.zip}`
+              : ""
+            : "", // Add ' prefix
+          index === 0
+            ? shippingAddress.province_code || shippingAddress.province || ""
+            : "",
+          index === 0
+            ? shippingAddress.country_code || shippingAddress.country || ""
+            : "",
+          index === 0 ? shippingAddress.phone || "" : "",
+
+          // Additional Order Fields
+          index === 0 ? order.note || "" : "",
+          index === 0 ? formatNoteAttributes(order.note_attributes) : "",
+          index === 0 ? formatShopifyDate(order.cancelled_at) : "",
+          index === 0 ? paymentMethod : "",
+          index === 0
+            ? order.transactions?.[0]?.receipt?.payment_id ||
+              order.transactions?.[0]?.authorization ||
+              ""
+            : "",
+          index === 0 ? order.total_price_refunded || "0.00" : "",
+          item.vendor || "",
+          index === 0 ? order.total_outstanding || "0.00" : "",
+          index === 0 ? order.source_identifier || "" : "",
+          index === 0 ? order.location_id || "" : "",
+          index === 0 ? order.device_id || "" : "",
+          order.id || "",
+          index === 0 ? order.tags || "" : "",
+          index === 0
+            ? order.risks && order.risks.length > 0
+              ? order.risks[0].recommendation
+              : "Low"
+            : "",
+          index === 0 ? order.source_name || "web" : "",
+          item.total_discount || "0.00",
+
+          // Tax Lines (up to 5)
+          index === 0 ? taxLines[0]?.title || "" : "",
+          index === 0 ? taxLines[0]?.price || "" : "",
+          index === 0 ? taxLines[1]?.title || "" : "",
+          index === 0 ? taxLines[1]?.price || "" : "",
+          index === 0 ? taxLines[2]?.title || "" : "",
+          index === 0 ? taxLines[2]?.price || "" : "",
+          index === 0 ? taxLines[3]?.title || "" : "",
+          index === 0 ? taxLines[3]?.price || "" : "",
+          index === 0 ? taxLines[4]?.title || "" : "",
+          index === 0 ? taxLines[4]?.price || "" : "",
+
+          // Additional Contact & Payment Info
+          index === 0 ? order.phone || customer.phone || "" : "",
+          order.order_number || "",
+          index === 0 ? order.total_duties || "" : "",
+          index === 0 ? billingAddress.province || "" : "",
+          index === 0 ? shippingAddress.province || "" : "",
+          index === 0 ? order.transactions?.[0]?.receipt?.payment_id || "" : "",
+          index === 0 ? order.payment_terms?.payment_terms_name || "" : "",
+          index === 0
+            ? formatShopifyDate(order.payment_terms?.next_payment_due_at)
+            : "",
+          index === 0 ? paymentRefs : "",
         ]);
       });
     } else {
-      // Order with no line items (edge case)
+      // Order without line items (rare case)
       rows.push([
-        // Order Information
-        order.id || "",
-        order.order_number || "",
         order.name || "",
-        order.created_at || "",
-        order.total_price || "0.00",
-        order.subtotal_price || "0.00",
-        order.total_tax || "0.00",
-        order.currency || "",
-        order.financial_status || "",
-        order.fulfillment_status || "unfulfilled",
-
-        // Customer Information
-        customer.id || "",
         order.email || customer.email || "",
-        customer.first_name || "",
-        customer.last_name || "",
-        customer.phone || order.phone || "",
-
-        // Billing Address
+        order.financial_status || "",
+        formatShopifyDate(order.processed_at),
+        order.fulfillment_status || "",
+        formatShopifyDate(order.fulfilled_at),
+        customer.accepts_marketing ? "yes" : "no",
+        order.currency || "",
+        order.subtotal_price || "0.00",
+        shippingLines[0]?.price || "0.00",
+        order.total_tax || "0.00",
+        order.total_price || "0.00",
+        discountCodes[0]?.code || "",
+        totalDiscount,
+        shippingLines[0]?.title || "",
+        formatShopifyDate(order.created_at),
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        `${billingAddress.first_name || ""} ${billingAddress.last_name || ""}`.trim(),
+        billingAddress.address1 || "",
         billingAddress.address1 || "",
         billingAddress.address2 || "",
+        billingAddress.company || "",
         billingAddress.city || "",
-        billingAddress.province || "",
-        billingAddress.zip || "",
-        billingAddress.country || "",
-
-        // Shipping Address
+        billingAddress.zip ? `'${billingAddress.zip}` : "",
+        billingAddress.province_code || billingAddress.province || "",
+        billingAddress.country_code || billingAddress.country || "",
+        billingAddress.phone || "",
+        `${shippingAddress.first_name || ""} ${shippingAddress.last_name || ""}`.trim(),
+        shippingAddress.address1 || "",
         shippingAddress.address1 || "",
         shippingAddress.address2 || "",
+        shippingAddress.company || "",
         shippingAddress.city || "",
+        shippingAddress.zip ? `'${shippingAddress.zip}` : "",
+        shippingAddress.province_code || shippingAddress.province || "",
+        shippingAddress.country_code || shippingAddress.country || "",
+        shippingAddress.phone || "",
+        order.note || "",
+        formatNoteAttributes(order.note_attributes),
+        formatShopifyDate(order.cancelled_at),
+        paymentMethod,
+        order.transactions?.[0]?.receipt?.payment_id ||
+          order.transactions?.[0]?.authorization ||
+          "",
+        order.total_price_refunded || "0.00",
+        "",
+        order.total_outstanding || "0.00",
+        order.source_identifier || "",
+        order.location_id || "",
+        order.device_id || "",
+        order.id || "",
+        order.tags || "",
+        order.risks && order.risks.length > 0
+          ? order.risks[0].recommendation
+          : "Low",
+        order.source_name || "web",
+        "",
+        taxLines[0]?.title || "",
+        taxLines[0]?.price || "",
+        taxLines[1]?.title || "",
+        taxLines[1]?.price || "",
+        taxLines[2]?.title || "",
+        taxLines[2]?.price || "",
+        taxLines[3]?.title || "",
+        taxLines[3]?.price || "",
+        taxLines[4]?.title || "",
+        taxLines[4]?.price || "",
+        order.phone || customer.phone || "",
+        order.order_number || "",
+        order.total_duties || "",
+        billingAddress.province || "",
         shippingAddress.province || "",
-        shippingAddress.zip || "",
-        shippingAddress.country || "",
-
-        // Empty Product Information
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
+        order.transactions?.[0]?.receipt?.payment_id || "",
+        order.payment_terms?.payment_terms_name || "",
+        formatShopifyDate(order.payment_terms?.next_payment_due_at),
+        paymentRefs,
       ]);
     }
   });
 
-  // Format CSV with proper escaping
   return [
     headers.join(","),
     ...rows.map((r) =>
-      r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
+      r
+        .map((v) => {
+          const str = String(v);
+          // Handle fields with commas, quotes, or newlines
+          if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str === "" ? "" : `${str}`;
+        })
+        .join(","),
     ),
   ].join("\n");
 }
@@ -636,7 +845,6 @@ export const action = async () => {
     const data = await response.json();
     orders = data.orders;
 
-    // Calculate total line items
     totalLineItems = orders.reduce(
       (sum, order) => sum + (order.line_items?.length || 0),
       0,
@@ -650,8 +858,8 @@ export const action = async () => {
       return json({ success: true, orders: 0, line_items: 0 });
     }
 
-    // 🔹 4. Convert to CSV with customer and product details
-    console.log("📝 Creating CSV File with customer and product details...");
+    // 🔹 4. Convert to CSV (Exact Shopify Format)
+    console.log("📝 Creating CSV File (Shopify Format)...");
     const csvContent = convertToCSV(orders);
 
     if (!csvContent) {
@@ -673,7 +881,7 @@ export const action = async () => {
     await fs.writeFile(csvFilePath, csvContent);
     console.log(`💾 CSV Saved → ${csvFilePath}`);
 
-    // 🔹 6. FTP upload
+    // 🔹 6. FTP upload with passive mode
     console.log("📤 Uploading CSV to FTP server...");
     console.log(`🔗 FTP Host: ${store.ftp_host}`);
 
@@ -688,6 +896,9 @@ export const action = async () => {
       secure: false,
       timeout: 50000,
     });
+
+    // Enable passive mode
+    client.ftp.passive = false;
 
     await client.uploadFrom(csvFilePath, `/${filename}`);
     client.close();
@@ -712,7 +923,7 @@ export const action = async () => {
       success: true,
       orders: orders.length,
       line_items: totalLineItems,
-      csv_rows: totalLineItems, // Each line item = 1 CSV row
+      csv_rows: totalLineItems,
       time_range: timeRange,
       uploaded_to: store.ftp_host,
       filename,
