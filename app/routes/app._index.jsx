@@ -278,7 +278,6 @@ export const action = async ({ request }) => {
   return { success: true };
 };
 
-/* ---------------------- TIME CALCULATION HELPERS ---------------------- */
 function formatDateTime(date) {
   if (!date) return "Never";
   return new Date(date).toLocaleString();
