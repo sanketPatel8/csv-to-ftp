@@ -192,9 +192,13 @@ import fs from "fs/promises";
 import pool from "../../db.server";
 import { Client } from "basic-ftp";
 
-export const config = { runtime: "nodejs" };
+export const config = {
+  runtime: "nodejs",
+  maxDuration: 60,
+  memory: 1024,
+};
 
-// Convert DB time_range to a timestamp
+// Convert DB time_range to timestamp
 function getCreatedAtMin(range) {
   const now = Date.now();
   const map = {
@@ -213,16 +217,24 @@ function getCreatedAtMin(range) {
 }
 
 export const action = async () => {
+  const cronStart = Date.now();
+  console.log("------------------------------------------------------");
+  console.log("🚀 CRON STARTED:", new Date().toISOString());
+  console.log("------------------------------------------------------");
+
   let csvFilePath = null;
   let orders = [];
 
   try {
-    // 1️⃣ Load store from DB (offline access token)
+    // 🔹 1. Load store settings
+    console.log("📡 Loading store configuration from database...");
+
     const [storeRows] = await pool.query(
       "SELECT shop, access_token, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, ftp_time_range FROM stores LIMIT 1",
     );
 
     if (!storeRows.length) {
+      console.log("❌ No Store Found in Database");
       return json({ error: "No store found in DB" }, { status: 404 });
     }
 
@@ -231,32 +243,28 @@ export const action = async () => {
     const accessToken = store.access_token;
     const timeRange = store.ftp_time_range || "24h";
 
-    console.log("⏳ Cron Time Range:", timeRange);
+    console.log(`🛒 Store Loaded: ${store.shop}`);
+    console.log(`⏱ Time Range from DB: ${timeRange}`);
 
     const createdAtMin = getCreatedAtMin(timeRange);
 
-    // 2️⃣ Build Shopify API URL
+    // 🔹 2. Build API URL
     const API_VERSION = "2024-01";
     let url = `https://${shop}.myshopify.com/admin/api/${API_VERSION}/orders.json?limit=250`;
+    if (createdAtMin) url += `&created_at_min=${createdAtMin}`;
 
-    if (createdAtMin) {
-      url += `&created_at_min=${createdAtMin}`;
-    }
+    console.log("📥 Shopify API URL:", url);
 
-    console.log("Fetching:", url);
-
-    // 3️⃣ Shopify Request
+    // 🔹 3. Fetch orders
+    console.log("📡 Fetching orders from Shopify...");
     const response = await fetch(url, {
-      method: "GET",
       headers: {
         "X-Shopify-Access-Token": accessToken,
         "Content-Type": "application/json",
       },
     });
 
-    if (!response.ok) {
-      throw new Error(`Shopify API Error: ${response.statusText}`);
-    }
+    if (!response.ok) throw new Error(`Shopify API Error: ${response.status}`);
 
     const data = await response.json();
     orders = data.orders;
@@ -264,14 +272,12 @@ export const action = async () => {
     console.log(`📦 Orders Fetched: ${orders.length}`);
 
     if (orders.length === 0) {
-      return json({
-        success: true,
-        orders: 0,
-        message: "No orders for selected time range",
-      });
+      console.log("⚠️ No orders found for selected time range.");
+      return json({ success: true, orders: 0 });
     }
 
-    // 4️⃣ Convert Orders to CSV
+    // 🔹 4. Convert to CSV
+    console.log("📝 Creating CSV File...");
     const headers = [
       "Order ID",
       "Order Number",
@@ -294,14 +300,16 @@ export const action = async () => {
       o.line_items?.length || 0,
     ]);
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((r) =>
-        r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
-      ),
-    ].join("\n");
+    const csvContent =
+      headers.join(",") +
+      "\n" +
+      rows
+        .map((r) =>
+          r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
+        )
+        .join("\n");
 
-    // 5️⃣ Save CSV to temp folder
+    // 🔹 5. Save CSV locally
     const timestamp = new Date()
       .toISOString()
       .replace(/[:.]/g, "-")
@@ -310,9 +318,12 @@ export const action = async () => {
     csvFilePath = `/tmp/${filename}`;
 
     await fs.writeFile(csvFilePath, csvContent);
-    console.log("💾 CSV Saved:", filename);
+    console.log(`💾 CSV Saved → ${csvFilePath}`);
 
-    // 6️⃣ Upload to FTP or SFTP
+    // 🔹 6. FTP upload
+    console.log("📤 Uploading CSV to FTP server...");
+    console.log(`🔗 FTP Host: ${store.ftp_host}`);
+
     const client = new Client();
     client.ftp.verbose = true;
 
@@ -327,14 +338,21 @@ export const action = async () => {
     await client.uploadFrom(csvFilePath, `/${filename}`);
     client.close();
 
-    console.log("🚀 FTP Upload Success");
+    console.log("🎉 FTP Upload Success!");
 
     await fs.unlink(csvFilePath);
+    console.log("🧹 Temp CSV Deleted");
 
-    // 7️⃣ Save cron run time
-    await pool.query("UPDATE stores SET last_cron_run = NOW() WHERE shop = ?", [
-      store.shop,
-    ]);
+    // 🔹 7. Save cron run time
+    console.log("🕒 Updating last_cron_run in database...");
+    await pool.query("UPDATE stores SET last_cron_run = NOW()");
+
+    const timeTaken = ((Date.now() - cronStart) / 1000).toFixed(2);
+
+    console.log("------------------------------------------------------");
+    console.log(`✅ CRON FINISHED at: ${new Date().toISOString()}`);
+    console.log(`⏳ Total Execution Time: ${timeTaken} seconds`);
+    console.log("------------------------------------------------------");
 
     return json({
       success: true,
@@ -342,9 +360,10 @@ export const action = async () => {
       time_range: timeRange,
       uploaded_to: store.ftp_host,
       filename,
+      execution_time_seconds: timeTaken,
     });
   } catch (error) {
-    console.error("❌ Cron Error:", error);
+    console.log("❌ CRON FAILED:", error.message);
 
     return json(
       {
