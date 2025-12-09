@@ -9,13 +9,13 @@
   },
   "routes": [
     {
-      "src": "/api/daily-orders",
-      "dest": "/api/daily-orders/route.js"
+      "src": "/api/cron",
+      "dest": "/api/cron/route.js"
     }
   ],
   "crons": [
     {
-      "path": "/api/daily-orders",
+      "path": "/api/cron",
       "schedule": "0 * * * *"
     }
   ]
