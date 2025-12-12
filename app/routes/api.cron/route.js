@@ -882,34 +882,71 @@ export const action = async () => {
     console.log(`💾 CSV Saved → ${csvFilePath}`);
 
     // 🔹 6. FTP upload with passive mode
-    console.log("📤 Uploading CSV to FTP server...");
-    console.log(`🔗 FTP Host: ${store.ftp_host}`);
+    console.log("============================================");
+    console.log("🚀 Starting FTP CSV Upload Process...");
+    console.log("============================================\n");
 
-    const client = new Client();
-    client.ftp.verbose = true;
+    console.log("📤 Preparing to upload CSV to FTP server...");
+    console.log("🔧 FTP Configuration:");
+    console.log(`   • Host: ${store.ftp_host}`);
+    console.log(`   • Port: ${store.ftp_port || 21}`);
+    console.log(`   • Username: ${store.ftp_username}`);
+    console.log(`   • Secure Mode: true`);
+    console.log(`   • Passive Mode: Enabled`);
+    console.log("--------------------------------------------");
 
-    await client.access({
-      host: store.ftp_host,
-      port: store.ftp_port || 21,
-      user: store.ftp_username,
-      password: store.ftp_password,
-      secure: true,
-      secureOptions: {
-        rejectUnauthorized: false,
-      },
-      timeout: 50000,
-    });
+    try {
+      const client = new Client();
+      client.ftp.verbose = true;
 
-    // Enable passive mode
-    client.ftp.passive = true;
+      console.log("🔌 Attempting connection to FTP server...");
 
-    await client.uploadFrom(csvFilePath, `/${filename}`);
-    client.close();
+      await client.access({
+        host: store.ftp_host,
+        port: store.ftp_port || 21,
+        user: store.ftp_username,
+        password: store.ftp_password,
+        secure: true,
+        secureOptions: { rejectUnauthorized: false },
+        timeout: 50000,
+      });
 
-    console.log("🎉 FTP Upload Success!");
+      console.log("✅ Connected to FTP server successfully!");
+      console.log(`📁 Current FTP Directory: ${await client.currentDir()}`);
 
-    await fs.unlink(csvFilePath);
-    console.log("🧹 Temp CSV Deleted");
+      // Enable passive mode
+      client.ftp.passive = true;
+      console.log("📡 Passive Mode Enabled");
+
+      console.log("--------------------------------------------");
+      console.log("⬆️ Upload Starting...");
+      console.log(`   • Local File: ${csvFilePath}`);
+      console.log(`   • Remote File: /${filename}`);
+
+      await client.uploadFrom(csvFilePath, `/${filename}`);
+
+      console.log("🎉 Upload Completed Successfully!");
+      console.log("--------------------------------------------");
+
+      client.close();
+      console.log("🔌 FTP Connection Closed");
+
+      // Delete temp CSV
+      await fs.unlink(csvFilePath);
+      console.log("🧹 Temp CSV File Deleted Successfully");
+
+      console.log("\n============================================");
+      console.log("🎯 FTP CSV Upload Process Finished!");
+      console.log("============================================");
+    } catch (error) {
+      console.log("\n❌ ERROR OCCURRED DURING FTP UPLOAD");
+      console.error("Error Details:", error.message);
+      console.error(error);
+
+      console.log("⚠️ Closing FTP client due to error...");
+
+      console.log("============================================\n");
+    }
 
     // 🔹 7. Save cron run time
     console.log("🕒 Updating last_cron_run in database...");
