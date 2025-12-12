@@ -413,19 +413,6 @@ function convertToCSV(ordersData) {
   ].join("\n");
 }
 
-// Convert time_range → milliseconds
-function getRangeMS(range) {
-  const map = {
-    "1h": 1 * 3600 * 1000,
-    "6h": 6 * 3600 * 1000,
-    "12h": 12 * 3600 * 1000,
-    "24h": 24 * 3600 * 1000,
-    "7d": 7 * 24 * 3600 * 1000,
-    "30d": 30 * 24 * 3600 * 1000,
-  };
-  return map[range] || map["24h"];
-}
-
 export const action = async () => {
   const cronStart = Date.now();
   console.log("------------------------------------------------------");
@@ -441,7 +428,7 @@ export const action = async () => {
     console.log("📡 Loading store configuration from database...");
 
     const [storeRows] = await pool.query(
-      "SELECT shop, access_token, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, ftp_time_range , last_cron_run FROM stores LIMIT 1",
+      "SELECT shop, access_token, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, ftp_time_range FROM stores LIMIT 1",
     );
 
     if (!storeRows.length) {
@@ -450,28 +437,6 @@ export const action = async () => {
     }
 
     const store = storeRows[0];
-
-    const now = Date.now();
-    const lastRun = store.last_cron_run
-      ? new Date(store.last_cron_run).getTime()
-      : 0;
-
-    const rangeMs = getRangeMS(store.ftp_time_range);
-
-    const nextAllowed = lastRun + rangeMs;
-
-    // ❌ Too early → do NOT run cron
-    if (now < nextAllowed) {
-      const nextRunReadable = new Date(nextAllowed).toISOString();
-
-      return json({
-        success: false,
-        message: "⏳ Cron not allowed yet",
-        last_cron_run: store.last_cron_run,
-        next_run_at: nextRunReadable,
-        wait_minutes: Math.ceil((nextAllowed - now) / 60000),
-      });
-    }
 
     const shop = store.shop.replace(".myshopify.com", "");
     const accessToken = store.access_token;
@@ -575,16 +540,16 @@ export const action = async () => {
         user: store.ftp_username,
         password: store.ftp_password,
         secure: secureMode,
-        timeout: 60000,
+        // secureOptions: { rejectUnauthorized: false },
+        timeout: 50000,
       });
 
       console.log("✅ Connected to FTP server successfully!");
       console.log(`📁 Current FTP Directory: ${await client.pwd()}`);
 
-      // ⭐ FIX: Disable passive mode → use ACTIVE mode
-      client.ftp.useList = true;
-      client.ftp.passive = false;
-      console.log("📡 Passive Mode Disabled → ACTIVE Mode Enabled");
+      // Enable passive mode
+      client.ftp.passive = true;
+      console.log("📡 Passive Mode Enabled");
 
       console.log("--------------------------------------------");
       console.log("⬆️ Upload Starting...");
@@ -599,14 +564,20 @@ export const action = async () => {
       client.close();
       console.log("🔌 FTP Connection Closed");
 
+      // Delete temp CSV
       await fs.unlink(csvFilePath);
       console.log("🧹 Temp CSV File Deleted Successfully");
+
+      console.log("\n============================================");
+      console.log("🎯 FTP CSV Upload Process Finished!");
+      console.log("============================================");
     } catch (error) {
       console.log("\n❌ ERROR OCCURRED DURING FTP UPLOAD");
       console.error("Error Details:", error.message);
       console.error(error);
 
       console.log("⚠️ Closing FTP client due to error...");
+
       console.log("============================================\n");
     }
 
