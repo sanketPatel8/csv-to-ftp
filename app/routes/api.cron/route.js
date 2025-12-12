@@ -575,16 +575,16 @@ export const action = async () => {
         user: store.ftp_username,
         password: store.ftp_password,
         secure: secureMode,
-        // secureOptions: { rejectUnauthorized: false },
         timeout: 50000,
       });
 
       console.log("✅ Connected to FTP server successfully!");
       console.log(`📁 Current FTP Directory: ${await client.pwd()}`);
 
-      // Enable passive mode
-      client.ftp.passive = true;
-      console.log("📡 Passive Mode Enabled");
+      // ⭐ FIX: Disable passive mode → use ACTIVE mode
+      client.ftp.useList = true;
+      client.ftp.passive = false;
+      console.log("📡 Passive Mode Disabled → ACTIVE Mode Enabled");
 
       console.log("--------------------------------------------");
       console.log("⬆️ Upload Starting...");
@@ -599,20 +599,14 @@ export const action = async () => {
       client.close();
       console.log("🔌 FTP Connection Closed");
 
-      // Delete temp CSV
       await fs.unlink(csvFilePath);
       console.log("🧹 Temp CSV File Deleted Successfully");
-
-      console.log("\n============================================");
-      console.log("🎯 FTP CSV Upload Process Finished!");
-      console.log("============================================");
     } catch (error) {
       console.log("\n❌ ERROR OCCURRED DURING FTP UPLOAD");
       console.error("Error Details:", error.message);
       console.error(error);
 
       console.log("⚠️ Closing FTP client due to error...");
-
       console.log("============================================\n");
     }
 
