@@ -427,9 +427,6 @@ export default function ConnectionSettings() {
                     { label: "Last 24 Hours", value: "24h" },
                     { label: "Last 7 Days", value: "7d" },
                     { label: "Last 30 Days", value: "30d" },
-                    { label: "Last 90 Days", value: "90d" },
-                    { label: "Last 1 Year", value: "1y" },
-                    { label: "All Time", value: "all" },
                   ]}
                   value={timeRange}
                   onChange={setTimeRange}
