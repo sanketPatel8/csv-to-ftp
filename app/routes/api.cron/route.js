@@ -912,7 +912,7 @@ export const action = async () => {
       });
 
       console.log("✅ Connected to FTP server successfully!");
-      console.log(`📁 Current FTP Directory: ${await client.currentDir()}`);
+      console.log(`📁 Current FTP Directory: ${await client.pwd()}`);
 
       // Enable passive mode
       client.ftp.passive = true;
