@@ -575,7 +575,7 @@ export const action = async () => {
         user: store.ftp_username,
         password: store.ftp_password,
         secure: secureMode,
-        timeout: 50000,
+        timeout: 60000,
       });
 
       console.log("✅ Connected to FTP server successfully!");
