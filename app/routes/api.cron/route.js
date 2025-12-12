@@ -906,8 +906,8 @@ export const action = async () => {
         port: store.ftp_port || 21,
         user: store.ftp_username,
         password: store.ftp_password,
-        secure: true,
-        secureOptions: { rejectUnauthorized: false },
+        secure: false,
+        // secureOptions: { rejectUnauthorized: false },
         timeout: 50000,
       });
 
