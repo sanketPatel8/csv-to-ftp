@@ -542,14 +542,14 @@ export const action = async () => {
         secure: false,
         // secureOptions: { rejectUnauthorized: false },
         timeout: 50000,
-        passive: false,
+        // passive: false,
       });
 
       console.log("✅ Connected to FTP server successfully!");
       console.log(`📁 Current FTP Directory: ${await client.pwd()}`);
 
       // Enable passive mode
-      // client.ftp.passive = true;
+      client.ftp.passive = true;
       console.log("📡 Passive Mode Enabled");
 
       console.log("--------------------------------------------");
