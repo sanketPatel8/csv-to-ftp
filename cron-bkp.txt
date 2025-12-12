@@ -9,7 +9,7 @@ export const config = {
   memory: 1024,
 };
 
-// (keep your helper functions as-is)
+// Convert DB time_range to timestamp
 function getCreatedAtMin(range) {
   const now = Date.now();
   const map = {
@@ -27,6 +27,7 @@ function getCreatedAtMin(range) {
   return new Date(now - (map[range] || map["24h"])).toISOString();
 }
 
+// Format date to match Shopify format: 2025-11-06 15:24:16 +0530
 function formatShopifyDate(dateString) {
   if (!dateString) return "";
 
@@ -50,16 +51,17 @@ function formatShopifyDate(dateString) {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} ${offsetSign}${offsetHours}${offsetMinutes}`;
 }
 
+// Format note attributes
 function formatNoteAttributes(noteAttributes) {
   if (!noteAttributes || noteAttributes.length === 0) return "";
   return noteAttributes.map((attr) => `${attr.name}: ${attr.value}`).join("\n");
 }
 
-// (convertToCSV kept same as your original — not repeating here for brevity)
-// Paste your full convertToCSV function here unchanged.
+// Convert orders to CSV matching exact Shopify format
 function convertToCSV(ordersData) {
   if (!ordersData.length) return null;
 
+  // Exact Shopify CSV headers (76 columns)
   const headers = [
     "Name",
     "Email",
@@ -153,14 +155,17 @@ function convertToCSV(ordersData) {
     const discountCodes = order.discount_codes || [];
     const discountApplications = order.discount_applications || [];
 
+    // Calculate total discount
     const totalDiscount = discountApplications
       .reduce((sum, disc) => sum + parseFloat(disc.value || 0), 0)
       .toFixed(2);
 
+    // Get payment method
     const paymentMethod = order.payment_gateway_names?.length
       ? `1${order.payment_gateway_names[0]}`
       : "";
 
+    // Format payment references (can have multiple with " + " separator)
     const paymentRefs =
       order.refunds?.map((r) => r.id).join(" + ") ||
       order.transactions?.[0]?.receipt?.payment_id ||
@@ -170,12 +175,14 @@ function convertToCSV(ordersData) {
       order.line_items.forEach((item, index) => {
         const itemTaxLines = item.tax_lines || [];
 
+        // Build lineitem name (product title with variant if exists)
         const lineitemName =
           item.variant_title && item.variant_title !== "Default Title"
             ? `${item.title} - ${item.variant_title}`
             : item.title;
 
         rows.push([
+          // Order Info (માત્ર પહેલી line item માં)
           order.name || "",
           index === 0 ? order.email || customer.email || "" : "",
           index === 0 ? order.financial_status || "" : "",
@@ -193,6 +200,7 @@ function convertToCSV(ordersData) {
           index === 0 ? shippingLines[0]?.title || "" : "",
           index === 0 ? formatShopifyDate(order.created_at) : "",
 
+          // Line Item Info (દરેક row માં)
           item.quantity || 0,
           lineitemName || "",
           item.price || "0.00",
@@ -202,6 +210,7 @@ function convertToCSV(ordersData) {
           item.taxable ? "true" : "false",
           item.fulfillment_status || "pending",
 
+          // Billing Address (માત્ર પહેલી line item માં)
           index === 0
             ? `${billingAddress.first_name || ""} ${billingAddress.last_name || ""}`.trim()
             : "",
@@ -214,7 +223,7 @@ function convertToCSV(ordersData) {
             ? billingAddress.zip
               ? `'${billingAddress.zip}`
               : ""
-            : "",
+            : "", // Add ' prefix
           index === 0
             ? billingAddress.province_code || billingAddress.province || ""
             : "",
@@ -223,6 +232,7 @@ function convertToCSV(ordersData) {
             : "",
           index === 0 ? billingAddress.phone || "" : "",
 
+          // Shipping Address (માત્ર પહેલી line item માં)
           index === 0
             ? `${shippingAddress.first_name || ""} ${shippingAddress.last_name || ""}`.trim()
             : "",
@@ -235,7 +245,7 @@ function convertToCSV(ordersData) {
             ? shippingAddress.zip
               ? `'${shippingAddress.zip}`
               : ""
-            : "",
+            : "", // Add ' prefix
           index === 0
             ? shippingAddress.province_code || shippingAddress.province || ""
             : "",
@@ -244,6 +254,7 @@ function convertToCSV(ordersData) {
             : "",
           index === 0 ? shippingAddress.phone || "" : "",
 
+          // Additional Order Fields
           index === 0 ? order.note || "" : "",
           index === 0 ? formatNoteAttributes(order.note_attributes) : "",
           index === 0 ? formatShopifyDate(order.cancelled_at) : "",
@@ -269,6 +280,7 @@ function convertToCSV(ordersData) {
           index === 0 ? order.source_name || "web" : "",
           item.total_discount || "0.00",
 
+          // Tax Lines (up to 5)
           index === 0 ? taxLines[0]?.title || "" : "",
           index === 0 ? taxLines[0]?.price || "" : "",
           index === 0 ? taxLines[1]?.title || "" : "",
@@ -280,6 +292,7 @@ function convertToCSV(ordersData) {
           index === 0 ? taxLines[4]?.title || "" : "",
           index === 0 ? taxLines[4]?.price || "" : "",
 
+          // Additional Contact & Payment Info
           index === 0 ? order.phone || customer.phone || "" : "",
           order.order_number || "",
           index === 0 ? order.total_duties || "" : "",
@@ -294,6 +307,7 @@ function convertToCSV(ordersData) {
         ]);
       });
     } else {
+      // Order without line items (rare case)
       rows.push([
         order.name || "",
         order.email || customer.email || "",
@@ -388,6 +402,7 @@ function convertToCSV(ordersData) {
       r
         .map((v) => {
           const str = String(v);
+          // Handle fields with commas, quotes, or newlines
           if (str.includes(",") || str.includes('"') || str.includes("\n")) {
             return `"${str.replace(/"/g, '""')}"`;
           }
@@ -404,255 +419,198 @@ export const action = async () => {
   console.log("🚀 CRON STARTED:", new Date().toISOString());
   console.log("------------------------------------------------------");
 
-  const results = []; // collect per-store results
+  let csvFilePath = null;
+  let orders = [];
+  let totalLineItems = 0;
 
   try {
-    // Load ALL stores
-    console.log("📡 Loading all store configurations from database...");
+    // 🔹 1. Load store settings
+    console.log("📡 Loading store configuration from database...");
+
     const [storeRows] = await pool.query(
-      "SELECT id, shop, access_token, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, ftp_time_range FROM stores",
+      "SELECT shop, access_token, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, ftp_time_range FROM stores LIMIT 1",
     );
 
     if (!storeRows.length) {
-      console.log("❌ No stores found in DB");
-      return json({ error: "No stores found in DB" }, { status: 404 });
+      console.log("❌ No Store Found in Database");
+      return json({ error: "No store found in DB" }, { status: 404 });
     }
 
-    // Process stores sequentially to avoid too many parallel network calls
-    for (const store of storeRows) {
-      const storeResult = {
-        store_id: store.id,
-        shop: store.shop,
-        uploaded: false,
-        orders_fetched: 0,
-        line_items: 0,
-        filename: null,
-        error: null,
-        preserved_csv_path: null,
-      };
+    const store = storeRows[0];
+
+    const shop = store.shop.replace(".myshopify.com", "");
+    const accessToken = store.access_token;
+    const timeRange = store.ftp_time_range || "24h";
+
+    console.log(`🛒 Store Loaded: ${store.shop}`);
+    console.log(`⏱ Time Range from DB: ${timeRange}`);
+
+    const createdAtMin = getCreatedAtMin(timeRange);
+
+    // 🔹 2. Build API URL
+    const API_VERSION = "2024-01";
+    let url = `https://${shop}.myshopify.com/admin/api/${API_VERSION}/orders.json?limit=250&status=any`;
+    if (createdAtMin) url += `&created_at_min=${createdAtMin}`;
+
+    console.log("📥 Shopify API URL:", url);
+
+    // 🔹 3. Fetch orders
+    console.log("📡 Fetching orders from Shopify...");
+    const response = await fetch(url, {
+      headers: {
+        "X-Shopify-Access-Token": accessToken,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) throw new Error(`Shopify API Error: ${response.status}`);
+
+    const data = await response.json();
+    orders = data.orders;
+
+    totalLineItems = orders.reduce(
+      (sum, order) => sum + (order.line_items?.length || 0),
+      0,
+    );
+
+    console.log(`📦 Orders Fetched: ${orders.length}`);
+    console.log(`📦 Total Line Items: ${totalLineItems}`);
+
+    if (orders.length === 0) {
+      console.log("⚠️ No orders found for selected time range.");
+      return json({ success: true, orders: 0, line_items: 0 });
+    }
+
+    // 🔹 4. Convert to CSV (Exact Shopify Format)
+    console.log("📝 Creating CSV File (Shopify Format)...");
+    const csvContent = convertToCSV(orders);
+
+    if (!csvContent) {
+      return json({
+        success: true,
+        orders: 0,
+        message: "No orders to export",
+      });
+    }
+
+    // 🔹 5. Save CSV locally
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .slice(0, -5);
+    const filename = `orders_${shop}_${timestamp}.csv`;
+    csvFilePath = `/tmp/${filename}`;
+
+    await fs.writeFile(csvFilePath, csvContent);
+    console.log(`💾 CSV Saved → ${csvFilePath}`);
+
+    // 🔹 6. FTP upload with passive mode
+    console.log("============================================");
+    console.log("🚀 Starting FTP CSV Upload Process...");
+    console.log("============================================\n");
+
+    console.log("📤 Preparing to upload CSV to FTP server...");
+    console.log("🔧 FTP Configuration:");
+    console.log(`   • Host: ${store.ftp_host}`);
+    console.log(`   • Port: ${store.ftp_port || 21}`);
+    console.log(`   • Username: ${store.ftp_username}`);
+    console.log(`   • Secure Mode: true`);
+    console.log(`   • Passive Mode: Enabled`);
+    console.log("--------------------------------------------");
+
+    try {
+      const client = new Client();
+      client.ftp.verbose = true;
+
+      console.log("🔌 Attempting connection to FTP server...");
+
+      let secureMode = false;
+
+      if (store.ftp_protocol) {
+        const proto = store.ftp_protocol.toLowerCase();
+
+        if (proto === "ftps" || proto === "ftp-ssl" || proto === "ftpes") {
+          secureMode = true;
+        }
+      }
+
+      await client.access({
+        host: store.ftp_host,
+        port: store.ftp_port || 21,
+        user: store.ftp_username,
+        password: store.ftp_password,
+        secure: false,
+        // secureOptions: { rejectUnauthorized: false },
+        timeout: 50000,
+        // passive: false,
+      });
+
+      console.log("✅ Connected to FTP server successfully!");
+      console.log(`📁 Current FTP Directory: ${await client.pwd()}`);
+
+      // Enable passive mode
+      client.ftp.passive = true;
+      console.log("📡 Passive Mode Enabled");
+
+      console.log("--------------------------------------------");
+      console.log("⬆️ Upload Starting...");
+      console.log(`   • Local File: ${csvFilePath}`);
+      console.log(`   • Remote File: /${filename}`);
+
+      await client.uploadFrom(csvFilePath, `/${filename}`);
+
+      console.log("🎉 Upload Completed Successfully!");
+      console.log("--------------------------------------------");
+
+      client.close();
+      console.log("🔌 FTP Connection Closed");
+
+      // Delete temp CSV
+      await fs.unlink(csvFilePath);
+      console.log("🧹 Temp CSV File Deleted Successfully");
 
       console.log("\n============================================");
-      console.log(`➡️ Processing store: ${store.shop} (ID: ${store.id})`);
+      console.log("🎯 FTP CSV Upload Process Finished!");
       console.log("============================================");
+    } catch (error) {
+      console.log("\n❌ ERROR OCCURRED DURING FTP UPLOAD");
+      console.error("Error Details:", error.message);
+      console.error(error);
 
-      try {
-        const shop = store.shop.replace(".myshopify.com", "");
-        const accessToken = store.access_token;
-        const timeRange = store.ftp_time_range || store.ftp_time_range || "24h";
-        const createdAtMin = getCreatedAtMin(timeRange);
+      console.log("⚠️ Closing FTP client due to error...");
 
-        // Build Shopify API URL
-        const API_VERSION = "2025-10";
-        let url = `https://${shop}.myshopify.com/admin/api/${API_VERSION}/orders.json?limit=250&status=any`;
-        if (createdAtMin) url += `&created_at_min=${createdAtMin}`;
+      console.log("============================================\n");
+    }
 
-        console.log("📥 Shopify API URL:", url);
-
-        // Fetch orders
-        console.log("📡 Fetching orders from Shopify for store:", store.shop);
-        const response = await fetch(url, {
-          headers: {
-            "X-Shopify-Access-Token": accessToken,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Shopify API Error for store ${store.shop}: ${response.status}`,
-          );
-        }
-
-        const data = await response.json();
-        const orders = data.orders || [];
-
-        storeResult.orders_fetched = orders.length;
-        storeResult.line_items = orders.reduce(
-          (sum, order) => sum + (order.line_items?.length || 0),
-          0,
-        );
-
-        console.log(`📦 Orders Fetched: ${orders.length}`);
-        console.log(`📦 Total Line Items: ${storeResult.line_items}`);
-
-        if (orders.length === 0) {
-          console.log(
-            "⚠️ No orders for this store/time range — skipping CSV + FTP.",
-          );
-          // still update last_cron_run for this store
-          await pool.query(
-            "UPDATE stores SET last_cron_run = NOW() WHERE id = ?",
-            [store.id],
-          );
-          results.push(storeResult);
-          continue;
-        }
-
-        // Convert orders to CSV
-        console.log("📝 Creating CSV File (Shopify Format)...");
-        const csvContent = convertToCSV(orders);
-
-        if (!csvContent) {
-          console.log("⚠️ convertToCSV returned empty — skipping store.");
-          await pool.query(
-            "UPDATE stores SET last_cron_run = NOW() WHERE id = ?",
-            [store.id],
-          );
-          results.push(storeResult);
-          continue;
-        }
-
-        // Save CSV locally
-        const timestamp = new Date()
-          .toISOString()
-          .replace(/[:.]/g, "-")
-          .slice(0, -5);
-        const filename = `orders_${shop}_${timestamp}.csv`;
-        const csvFilePath = `/tmp/${filename}`;
-        storeResult.filename = filename;
-        storeResult.preserved_csv_path = csvFilePath;
-
-        await fs.writeFile(csvFilePath, csvContent);
-        console.log(`💾 CSV Saved → ${csvFilePath}`);
-
-        // FTP upload
-        console.log(
-          "📤 Preparing to upload CSV to FTP server for store:",
-          store.shop,
-        );
-        if (!store.ftp_host || !store.ftp_username) {
-          throw new Error(
-            "Missing FTP configuration (host/username) for store",
-          );
-        }
-
-        const client = new Client();
-        client.ftp.verbose = true;
-
-        try {
-          // Determine secure mode from ftp_protocol
-          let secureMode = false;
-          if (store.ftp_protocol) {
-            const proto = String(store.ftp_protocol).toLowerCase();
-            if (proto === "ftps" || proto === "ftp-ssl" || proto === "ftpes") {
-              secureMode = true;
-            }
-          }
-
-          console.log("🔧 FTP Configuration:");
-          console.log(`   • Host: ${store.ftp_host}`);
-          console.log(`   • Port: ${store.ftp_port || 21}`);
-          console.log(`   • Username: ${store.ftp_username}`);
-          console.log(`   • Secure Mode: ${secureMode}`);
-          console.log("--------------------------------------------");
-
-          await client.access({
-            host: store.ftp_host,
-            port: store.ftp_port || 21,
-            user: store.ftp_username,
-            password: store.ftp_password,
-            secure: secureMode,
-            timeout: 50000,
-          });
-
-          console.log("✅ Connected to FTP server successfully!");
-          console.log(`📁 Current FTP Directory: ${await client.pwd()}`);
-
-          // Enable passive mode (basic-ftp uses passive by default; still log)
-          client.ftp.passive = true;
-          console.log("📡 Passive Mode Enabled");
-
-          console.log("⬆️ Upload Starting...");
-          console.log(`   • Local File: ${csvFilePath}`);
-          console.log(`   • Remote File: /${filename}`);
-
-          await client.uploadFrom(csvFilePath, `/${filename}`);
-
-          console.log("🎉 Upload Completed Successfully!");
-          storeResult.uploaded = true;
-
-          // Close ftp client
-          client.close();
-          console.log("🔌 FTP Connection Closed");
-        } catch (ftpErr) {
-          // Ensure client closed if an error occurred
-          try {
-            client.close();
-          } catch (e) {
-            // ignore
-          }
-          throw ftpErr;
-        } finally {
-          // nothing extra here
-        }
-
-        // Delete temp CSV after successful upload
-        try {
-          await fs.unlink(csvFilePath);
-          storeResult.preserved_csv_path = null; // removed
-          console.log("🧹 Temp CSV File Deleted Successfully");
-        } catch (unlinkErr) {
-          // If deletion fails, preserve path for debugging
-          console.warn("⚠️ Failed to delete temp CSV:", unlinkErr.message);
-        }
-
-        // Update last_cron_run for this store
-        await pool.query(
-          "UPDATE stores SET last_cron_run = NOW() WHERE id = ?",
-          [store.id],
-        );
-
-        const storeTimeTaken = ((Date.now() - cronStart) / 1000).toFixed(2);
-        console.log("------------------------------------------------------");
-        console.log(`✅ Store Finished: ${store.shop}`);
-        console.log(`⏳ Time since cron start: ${storeTimeTaken} seconds`);
-        console.log("------------------------------------------------------");
-
-        results.push(storeResult);
-      } catch (storeErr) {
-        console.error(
-          `❌ Error processing store ${store.shop}:`,
-          storeErr.message,
-        );
-        storeResult.error = storeErr.message || String(storeErr);
-        // leave preserved_csv_path as-is (if file was created)
-        // attempt to update last_cron_run anyway
-        try {
-          await pool.query(
-            "UPDATE stores SET last_cron_run = NOW() WHERE id = ?",
-            [store.id],
-          );
-        } catch (e) {
-          console.warn(
-            "⚠️ Could not update last_cron_run for store:",
-            store.id,
-            e.message,
-          );
-        }
-        results.push(storeResult);
-        // continue to next store
-      }
-    } // end for-of stores
+    // 🔹 7. Save cron run time
+    console.log("🕒 Updating last_cron_run in database...");
+    await pool.query("UPDATE stores SET last_cron_run = NOW()");
 
     const timeTaken = ((Date.now() - cronStart) / 1000).toFixed(2);
+
     console.log("------------------------------------------------------");
-    console.log(
-      `✅ CRON FINISHED for all stores at: ${new Date().toISOString()}`,
-    );
+    console.log(`✅ CRON FINISHED at: ${new Date().toISOString()}`);
     console.log(`⏳ Total Execution Time: ${timeTaken} seconds`);
     console.log("------------------------------------------------------");
 
     return json({
       success: true,
-      summary: results,
+      orders: orders.length,
+      line_items: totalLineItems,
+      csv_rows: totalLineItems,
+      time_range: timeRange,
+      uploaded_to: store.ftp_host,
+      filename,
       execution_time_seconds: timeTaken,
     });
   } catch (error) {
     console.log("❌ CRON FAILED:", error.message);
+
     return json(
       {
         error: error.message,
-        summary: results,
+        orders: orders.length,
+        csv_preserved: csvFilePath || false,
       },
       { status: 500 },
     );
