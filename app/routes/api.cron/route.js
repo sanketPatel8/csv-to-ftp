@@ -507,7 +507,39 @@ export const action = async () => {
           .toISOString()
           .replace(/[:.]/g, "-")
           .slice(0, -5);
-        const filename = `orders_${shop}_${timestamp}.csv`;
+
+        // clean shop name for safe filename
+        const cleanShop = shop.replace(/[^a-zA-Z0-9_-]/g, "");
+
+        // clean timeRange
+        const cleanRange = timeRange.replace(/[^a-zA-Z0-9_-]/g, "");
+
+        // build formatted date
+        const d = new Date();
+        const day = String(d.getDate()).padStart(2, "0");
+
+        const months = [
+          "jan",
+          "feb",
+          "mar",
+          "apr",
+          "may",
+          "jun",
+          "jul",
+          "aug",
+          "sep",
+          "oct",
+          "nov",
+          "dec",
+        ];
+        const month = months[d.getMonth()];
+        const year = d.getFullYear();
+
+        const hours = String(d.getHours()).padStart(2, "0");
+        const minutes = String(d.getMinutes()).padStart(2, "0");
+
+        // const filename = `orders_${shop}_${timestamp}.csv`;
+        const filename = `orders_${cleanShop}_${cleanRange}_${day}_${month}_${year}_${hours}-${minutes}.csv`;
         const csvFilePath = `/tmp/${filename}`;
         storeResult.filename = filename;
         storeResult.preserved_csv_path = csvFilePath;
