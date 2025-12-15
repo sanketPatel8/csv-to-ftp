@@ -60,21 +60,33 @@ function getISTDateTime() {
 function mysqlISTToTimestamp(mysqlDateTime) {
   if (!mysqlDateTime) return null;
 
-  const [date, time] = mysqlDateTime.split(" ");
-  const [y, m, d] = date.split("-");
-  const [hh, mm, ss] = time.split(":");
+  // ✅ If mysql2 already gave Date object
+  if (mysqlDateTime instanceof Date) {
+    return mysqlDateTime.getTime();
+  }
 
-  const utc = Date.UTC(
-    Number(y),
-    Number(m) - 1,
-    Number(d),
-    Number(hh),
-    Number(mm),
-    Number(ss),
-  );
+  // ✅ If it's string "YYYY-MM-DD HH:mm:ss"
+  if (typeof mysqlDateTime === "string") {
+    const [date, time] = mysqlDateTime.split(" ");
+    if (!date || !time) return null;
 
-  // IST = UTC + 5:30 → subtract to normalize
-  return utc - 5.5 * 60 * 60 * 1000;
+    const [y, m, d] = date.split("-");
+    const [hh, mm, ss] = time.split(":");
+
+    const utc = Date.UTC(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(hh),
+      Number(mm),
+      Number(ss),
+    );
+
+    // IST = UTC + 5:30
+    return utc - 5.5 * 60 * 60 * 1000;
+  }
+
+  return null;
 }
 
 // Get current IST Date object
