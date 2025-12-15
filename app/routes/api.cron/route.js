@@ -57,6 +57,33 @@ function getISTDateTime() {
   return `${yyyy}-${mm}-${dd} ${time}`;
 }
 
+function mysqlISTToTimestamp(mysqlDateTime) {
+  if (!mysqlDateTime) return null;
+
+  const [date, time] = mysqlDateTime.split(" ");
+  const [y, m, d] = date.split("-");
+  const [hh, mm, ss] = time.split(":");
+
+  const utc = Date.UTC(
+    Number(y),
+    Number(m) - 1,
+    Number(d),
+    Number(hh),
+    Number(mm),
+    Number(ss),
+  );
+
+  // IST = UTC + 5:30 → subtract to normalize
+  return utc - 5.5 * 60 * 60 * 1000;
+}
+
+// Get current IST Date object
+function getISTDateObj() {
+  return new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
+  );
+}
+
 /* -------------------------
    Helper: Shopify date formatting
    -> Example: 2025-11-06 15:24:16 +0530
@@ -485,7 +512,7 @@ export const action = async () => {
         // Validate whether cron should run for this store
         const now = Date.now();
         const lastRunTs = store.last_cron_run
-          ? new Date(store.last_cron_run).getTime()
+          ? mysqlISTToTimestamp(store.last_cron_run)
           : null;
         const rangeMs = getRangeMs(store.ftp_time_range);
         const nextAllowedRunTs = lastRunTs ? lastRunTs + rangeMs : null;
@@ -555,7 +582,7 @@ export const action = async () => {
           try {
             await pool.query(
               "UPDATE stores SET last_cron_run = ? WHERE id = ?",
-              [store.id],
+              [getISTDateTime(), store.id],
             );
             console.log("🕒 last_cron_run updated (no orders).");
           } catch (e) {
@@ -576,7 +603,9 @@ export const action = async () => {
 
         // Build filename in requested format:
         // orders_{shop}_{range}_{dd}_{mon}_{yyyy}_{hh-mm}.csv
-        const nowDate = new Date();
+        // const nowDate = new Date();
+        const nowDate = getISTDateObj();
+
         const day = String(nowDate.getDate()).padStart(2, "0");
         const months = [
           "jan",
