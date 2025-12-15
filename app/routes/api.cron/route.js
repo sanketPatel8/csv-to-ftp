@@ -57,33 +57,53 @@ function getISTDateTime() {
   return `${yyyy}-${mm}-${dd} ${time}`;
 }
 
+// function mysqlISTToTimestamp(mysqlDateTime) {
+//   if (!mysqlDateTime) return null;
+
+//   // ✅ If mysql2 already gave Date object
+//   if (mysqlDateTime instanceof Date) {
+//     return mysqlDateTime.getTime();
+//   }
+
+//   // ✅ If it's string "YYYY-MM-DD HH:mm:ss"
+//   if (typeof mysqlDateTime === "string") {
+//     const [date, time] = mysqlDateTime.split(" ");
+//     if (!date || !time) return null;
+
+//     const [y, m, d] = date.split("-");
+//     const [hh, mm, ss] = time.split(":");
+
+//     const utc = Date.UTC(
+//       Number(y),
+//       Number(m) - 1,
+//       Number(d),
+//       Number(hh),
+//       Number(mm),
+//       Number(ss),
+//     );
+
+//     // IST = UTC + 5:30
+//     return utc - 5.5 * 60 * 60 * 1000;
+//   }
+
+//   return null;
+// }
+
 function mysqlISTToTimestamp(mysqlDateTime) {
   if (!mysqlDateTime) return null;
 
-  // ✅ If mysql2 already gave Date object
+  // Case 1: mysql2 gives Date object
   if (mysqlDateTime instanceof Date) {
-    return mysqlDateTime.getTime();
+    return new Date(
+      mysqlDateTime.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      }),
+    ).getTime();
   }
 
-  // ✅ If it's string "YYYY-MM-DD HH:mm:ss"
+  // Case 2: MySQL DATETIME string (YYYY-MM-DD HH:mm:ss)
   if (typeof mysqlDateTime === "string") {
-    const [date, time] = mysqlDateTime.split(" ");
-    if (!date || !time) return null;
-
-    const [y, m, d] = date.split("-");
-    const [hh, mm, ss] = time.split(":");
-
-    const utc = Date.UTC(
-      Number(y),
-      Number(m) - 1,
-      Number(d),
-      Number(hh),
-      Number(mm),
-      Number(ss),
-    );
-
-    // IST = UTC + 5:30
-    return utc - 5.5 * 60 * 60 * 1000;
+    return new Date(mysqlDateTime.replace(" ", "T") + "+05:30").getTime();
   }
 
   return null;
