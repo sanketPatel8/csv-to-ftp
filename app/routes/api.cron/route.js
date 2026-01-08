@@ -1383,7 +1383,12 @@ export const action = async () => {
           console.log(
             `⬆️ Uploading local ${csvFilePath} -> remote /${filename}`,
           );
-          await client.uploadFrom(csvFilePath, `/${filename}`);
+          const remoteDir = "/uploads"; // change only folder, NOT filename
+
+          await client.ensureDir(remoteDir);
+          await client.uploadFrom(csvFilePath, `${remoteDir}/${filename}`);
+
+          // await client.uploadFrom(csvFilePath, `/${filename}`);
           console.log("🎉 FTP upload successful!");
           storeResult.uploaded = true;
 
