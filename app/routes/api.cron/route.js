@@ -1348,7 +1348,7 @@ export const action = async () => {
           store.file_path && store.file_path !== "/" ? store.file_path : "/tmp";
 
         // ensure directory exists
-        await fs.mkdir(basePath, { recursive: true });
+        // await fs.mkdir(basePath, { recursive: true });
 
         const csvFilePath = `${basePath}/${filename}`;
 
