@@ -1179,7 +1179,7 @@ export const action = async () => {
     // Load all stores
     console.log("📡 Loading stores from DB...");
     const [storeRows] = await pool.query(
-      "SELECT id, shop, access_token, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, ftp_time_range, last_cron_run FROM stores",
+      "SELECT id, shop, access_token, ftp_protocol, ftp_host, ftp_port, ftp_username, ftp_password, ftp_time_range, last_cron_run, file_path FROM stores",
     );
 
     if (!storeRows || storeRows.length === 0) {
@@ -1332,14 +1332,30 @@ export const action = async () => {
           "",
         );
 
+        // const filename = `orders_${cleanShop}_${cleanRange}_${day}_${month}_${year}_${hours}-${minutes}.csv`;
+        // const csvFilePath = `/tmp/${filename}`;
+
+        // storeResult.filename = filename;
+        // storeResult.preserved_csv_path = csvFilePath;
+
+        // // Save CSV locally
+        // await fs.writeFile(csvFilePath, csvContent);
+
         const filename = `orders_${cleanShop}_${cleanRange}_${day}_${month}_${year}_${hours}-${minutes}.csv`;
-        const csvFilePath = `/tmp/${filename}`;
+
+        const basePath = store.file_path || "/tmp";
+
+        // ensure directory exists
+        await fs.mkdir(basePath, { recursive: true });
+
+        const csvFilePath = `${basePath}/${filename}`;
 
         storeResult.filename = filename;
         storeResult.preserved_csv_path = csvFilePath;
 
         // Save CSV locally
         await fs.writeFile(csvFilePath, csvContent);
+
         console.log(`💾 CSV saved to ${csvFilePath}`);
 
         // Upload via FTP
@@ -1383,6 +1399,13 @@ export const action = async () => {
           console.log(
             `⬆️ Uploading local ${csvFilePath} -> remote /${filename}`,
           );
+
+          const basePath = store.file_path || "/tmp";
+
+          // ensure directory exists
+          await fs.mkdir(basePath, { recursive: true });
+
+          const csvFilePath = `${basePath}/${filename}`;
 
           const remoteDir = "/shopifyftp/uplods"; // change only folder, NOT filename
 
