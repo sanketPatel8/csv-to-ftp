@@ -1343,7 +1343,9 @@ export const action = async () => {
 
         const filename = `orders_${cleanShop}_${cleanRange}_${day}_${month}_${year}_${hours}-${minutes}.csv`;
 
-        const basePath = store.file_path || "/tmp";
+        // ✅ SAFE BASE PATH LOGIC
+        const basePath =
+          store.file_path && store.file_path !== "/" ? store.file_path : "/tmp";
 
         // ensure directory exists
         await fs.mkdir(basePath, { recursive: true });
@@ -1400,14 +1402,22 @@ export const action = async () => {
             `⬆️ Uploading local ${csvFilePath} -> remote /${filename}`,
           );
 
-          const basePath = store.file_path || "/tmp";
+          // const basePath = store.file_path || "/tmp";
 
-          // ensure directory exists
-          await fs.mkdir(basePath, { recursive: true });
+          // // ensure directory exists
+          // await fs.mkdir(basePath, { recursive: true });
 
-          const csvFilePath = `${basePath}/${filename}`;
+          // const csvFilePath = `${basePath}/${filename}`;
 
-          const remoteDir = "/shopifyftp/uplods"; // change only folder, NOT filename
+          // const remoteDir = "/shopifyftp/uplods"; // change only folder, NOT filename
+
+          // await client.ensureDir(remoteDir);
+          // await client.uploadFrom(csvFilePath, `${remoteDir}/${filename}`);
+
+          const remoteDir =
+            store.file_path && store.file_path !== "/"
+              ? store.file_path
+              : "/shopifyftp/default";
 
           await client.ensureDir(remoteDir);
           await client.uploadFrom(csvFilePath, `${remoteDir}/${filename}`);
