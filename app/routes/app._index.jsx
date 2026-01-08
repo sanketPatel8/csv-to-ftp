@@ -263,6 +263,7 @@ export const action = async ({ request }) => {
   const username = form.get("username");
   const passwordValue = form.get("password");
   const time_range = form.get("time_range");
+  const file_path = form.get("file_path"); // ✅ NEW
 
   const storage = new MySQLSessionStorage();
 
@@ -273,6 +274,7 @@ export const action = async ({ request }) => {
     username,
     password: passwordValue,
     time_range,
+    file_path, // ✅ SAVE
   });
 
   return { success: true };
@@ -344,6 +346,7 @@ export default function ConnectionSettings() {
   const [username, setUsername] = useState(config?.username || "");
   const [password, setPassword] = useState(config?.password || "");
   const [timeRange, setTimeRange] = useState(config?.time_range || "24h");
+  const [filePath, setFilePath] = useState(config?.file_path || "/");
 
   /* Auto-update port on protocol change */
   useEffect(() => {
@@ -416,6 +419,15 @@ export default function ConnectionSettings() {
                   value={password}
                   onChange={setPassword}
                   name="password"
+                />
+
+                <TextField
+                  label="Remote File Path"
+                  helpText="Example: /exports/orders or /public_html/uploads"
+                  placeholder="/exports/orders"
+                  value={filePath}
+                  onChange={setFilePath}
+                  name="file_path"
                 />
 
                 <Select
