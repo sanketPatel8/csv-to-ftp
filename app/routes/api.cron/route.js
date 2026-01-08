@@ -1383,7 +1383,8 @@ export const action = async () => {
           console.log(
             `⬆️ Uploading local ${csvFilePath} -> remote /${filename}`,
           );
-          const remoteDir = "/uploads"; // change only folder, NOT filename
+
+          const remoteDir = "/shopifyftp/uplods"; // change only folder, NOT filename
 
           await client.ensureDir(remoteDir);
           await client.uploadFrom(csvFilePath, `${remoteDir}/${filename}`);
